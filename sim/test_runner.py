@@ -13,10 +13,10 @@ SIM = os.environ.get("SIM", "icarus")
 PROJ_ROOT = Path(__file__).resolve().parent.parent
 
 VERILOG_SOURCES = [
-    PROJ_ROOT / "eth_axis_rx.sv",
-    PROJ_ROOT / "ip_eth_rx_64.sv",
-    PROJ_ROOT / "udp_ip_rx_64.sv",
-    PROJ_ROOT / "udp_rx_top.sv",
+    PROJ_ROOT / "rtl" / "vendor" / "eth_axis_rx.v",
+    PROJ_ROOT / "rtl" / "vendor" / "ip_eth_rx_64.v",
+    PROJ_ROOT / "rtl" / "vendor" / "udp_ip_rx_64.v",
+    PROJ_ROOT / "rtl" / "vendor" / "udp_rx_top.v",
 ]
 
 TOPLEVEL = "udp_rx_top"
