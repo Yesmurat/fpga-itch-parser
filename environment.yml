@@ -1,0 +1,9 @@
+name: fpga-itch-parser
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - iverilog=12.0
+  - pip
+  - pip:
+      - -r requirements.txt
