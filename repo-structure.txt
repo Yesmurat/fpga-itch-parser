@@ -1,0 +1,20 @@
+project-root/
+├── rtl/
+│   ├── eth_axis_rx.v            vendored — strips Ethernet header
+│   ├── ip_eth_rx_64.v           vendored — parses/validates IPv4, drops bad packets
+│   ├── udp_ip_rx_64.v           vendored — parses UDP, extracts ports/length
+│   ├── udp_rx_top.sv            YOURS (done) — chains the three above
+│   ├── moldudp64_deframer.sv    TO BUILD — step 4, the hard part
+│   ├── itch_decoder.sv          TO BUILD — step 5, type-dispatch decode
+│   └── feed_parser_top.sv       TO BUILD — udp_rx_top → deframer → decoder
+├── sim/
+│   ├── test_udp_rx_top.py       done — transport sanity + backpressure
+│   ├── test_moldudp64.py        TO BUILD — deframer tests
+│   ├── test_itch.py             TO BUILD — decoder tests
+│   ├── test_feed_parser.py      TO BUILD — end-to-end
+│   ├── test_runner.py           done — cocotb 2.0 runner
+│   └── golden/
+│       ├── mold_model.py        TO BUILD — reference deframer in Python
+│       └── itch_model.py        TO BUILD — reference decoder in Python
+├── requirements.txt             pin cocotb 2.0.1, cocotbext-axi 0.1.28, scapy
+└── README.md
