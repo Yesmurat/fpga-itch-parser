@@ -185,22 +185,36 @@ inline const TypeSpec& type_spec(char t) {
 }
 
 struct DecodedMessage {
-    uint64_t seq_num = 0; // block index (0-based) within the input stream
-    char msg_type = 0;
-    uint16_t stock_locate = 0;
-    uint16_t tracking_number = 0;
-    uint64_t timestamp = 0; // 48-bit value, nanoseconds since midnight
-    int field_count = 0;
+
+    uint64_t seq_num         = 0; // block index (0-based) within the input stream
+    char     msg_type        = 0; // message type (UNKNOWN, S, R, A, etc.)
+
+    uint16_t stock_locate    = 0;
+    uint16_t tracking_number = 0; // NASDAQ's internal tracking ID
+    uint64_t timestamp       = 0; // 48-bit value, nanoseconds since midnight
+    int      field_count     = 0; // how many of 14 slots hold real data for this message's type
+
     std::array<uint64_t, MAX_FIELDS> field_int{};    // valid where the field is not ASCII
     std::array<std::string, MAX_FIELDS> field_str{}; // valid where the field is ASCII
 
-    bool error_unknown_type = false;
-    bool error_length_mismatch = false;
-    bool error_truncated = false;
+    bool error_unknown_type    = false; // set when the type byte didn't match any of the 9 known types
+    bool error_length_mismatch = false; // set when the type was recognized but the byte count handed to decode_one doesn't match what that type requires
+    bool error_truncated       = false; // set when there is no byte available to read a type from
+
 };
 
-// Decode one message body (exactly `len` bytes at `body`, no length prefix).
+// Decode one message body (exactly len bytes at body, no length prefix).
 inline DecodedMessage decode_one(const uint8_t* body, size_t len, uint64_t seq_num) {
+
+    /* Decode Table.
+
+        Byte Offset |       0      |      1-2     |       3-4       |   5-10    |
+        Field       | Message Type | Stock Locate | Tracking Number | Timestamp |
+        Width       |   1 byte     |   2 bytes    |     2 bytes     |  6 bytes  |
+
+    */
+
+    // Empty DecodedMessage with default values.
     DecodedMessage m;
     m.seq_num = seq_num;
 
@@ -208,20 +222,25 @@ inline DecodedMessage decode_one(const uint8_t* body, size_t len, uint64_t seq_n
         m.error_truncated = true;
         return m;
     }
-    m.msg_type = static_cast<char>(body[0]);
 
+    m.msg_type = static_cast<char>(body[0]); // from Decode Table.
+
+    // Message type specification.
     const TypeSpec& spec = type_spec(m.msg_type);
+
     if (spec.total_length == 0) {
         m.error_unknown_type = true;
         return m;
     }
+
     if (len != spec.total_length) {
         m.error_length_mismatch = true;
         return m;
     }
 
-    m.stock_locate = (static_cast<uint16_t>(body[1]) << 8) | body[2];
-    m.tracking_number = (static_cast<uint16_t>(body[3]) << 8) | body[4];
+    m.stock_locate = (static_cast<uint16_t>(body[1]) << 8) | body[2];    // from Decode Table.
+    m.tracking_number = (static_cast<uint16_t>(body[3]) << 8) | body[4]; // from Decode Table.
+
     m.timestamp = 0;
     for (int i = 0; i < 6; ++i) {
         m.timestamp = (m.timestamp << 8) | body[5 + i];
@@ -229,19 +248,37 @@ inline DecodedMessage decode_one(const uint8_t* body, size_t len, uint64_t seq_n
 
     size_t off = COMMON_HEADER_LEN;
     m.field_count = spec.field_count;
-    for (int k = 0; k < spec.field_count; ++k) {
+
+    for (int k = 0; k < spec.field_count; ++k) { // count from 0 to the max # of fields in a message.
+
+        // extract fields from spec.
         const FieldSpec& f = spec.fields[static_cast<size_t>(k)];
-        if (f.is_ascii) {
+
+        if (f.is_ascii) { // if the field is ASCII
+
             m.field_str[static_cast<size_t>(k)] =
                 std::string(reinterpret_cast<const char*>(body + off), f.width);
-        } else {
-            uint64_t v = 0;
-            for (int i = 0; i < f.width; ++i) v = (v << 8) | body[off + static_cast<size_t>(i)];
-            m.field_int[static_cast<size_t>(k)] = v;
+                
         }
+        
+        else {
+
+            uint64_t v = 0;
+
+            for (int i = 0; i < f.width; ++i) {
+                v = (v << 8) | body[off + static_cast<size_t>(i)];
+            }
+
+            m.field_int[static_cast<size_t>(k)] = v;
+
+        }
+
         off += f.width;
+
     }
+
     return m;
+
 }
 
 // Reads a stream of [2-byte big-endian length][message bytes] blocks until
