@@ -1,17 +1,22 @@
-// Reference decoder for the 9 in-scope NASDAQ TotalView-ITCH 5.0 message types.
-//
-// Field layouts below are transcribed directly from NASDAQ's published
-// TotalView-ITCH 5.0 Interface Specification (v5.0, 03/06/2015), section 4.
-// This is the golden model rtl/itch_decoder.v is checked against -- the two
-// implementations deliberately mirror each other's table shape (common
-// 11-byte header, then a per-type list of (width, is_ascii) fields) so a
-// mistake in one is easy to spot against the other.
-//
-// Wire conventions (spec section 3, "Data Types"): all integer fields are
-// big-endian unsigned; all alpha (ASCII) fields are left-justified,
-// space-padded on the right and carried byte-for-byte, no reversal; Price
-// fields are big-endian unsigned integers with 4 implied decimal places.
-#pragma once
+/* 
+
+Reference decoder for 9 in-scope NASDAQ TotalView-ITCH 5.0 message types.
+
+Field layouts below are transcribed directly from NASDAQ's published
+TotalView-ITCH 5.0 Interface Specification (v5.0, 03/06/2015), section 4.
+This is the golden model itch_decoder.v is checked against. The two
+implementations deliberately mirror each other's table shape (common
+11-byte header, then a per-type list of (width, is_ascii) fields) so a
+mistake in one is easy to spot against the other.
+
+Wire conventions (spec section 3, "Data Types"): all integer fields are
+big-endian unsigned; all alpha (ASCII) fields are left-justified,
+space-padded on the right and carried byte-for-byte, no reversal; Price
+fields are big-endian unsigned integers with 4 implied decimal places.
+
+*/
+
+#pragma once // make sure the header is included only once in a build.
 
 #include <array>
 #include <cstddef>
@@ -22,90 +27,147 @@
 
 namespace itch {
 
-constexpr int MAX_FIELDS = 14; // widest type is Stock Directory ('R')
-constexpr int COMMON_HEADER_LEN = 11; // type(1) + stock_locate(2) + tracking_number(2) + timestamp(6)
+constexpr int MAX_FIELDS = 14;                  // widest type is Stock Directory ('R')
+constexpr int COMMON_HEADER_LEN = 11;           // type(1) + stock_locate(2) + tracking_number(2) + timestamp(6)
 
-struct FieldSpec {
+struct FieldSpec {                              // describe one field with within a message type
+
     uint8_t width;
-    bool is_ascii; // true: raw bytes (ASCII), false: big-endian unsigned integer
+    bool is_ascii;                              // if true -> raw bytes (ASCII); if false -> big-endian uint
+
 };
 
-struct TypeSpec {
-    uint8_t total_length; // 0 = unrecognized type byte
-    uint8_t field_count;  // fields after the common header
-    std::array<FieldSpec, MAX_FIELDS> fields;
+struct TypeSpec {                               // describe an entire message type.
+
+    uint8_t total_length;                       // 0 = unrecognized type byte
+    uint8_t field_count;                        // fields after the common header
+    std::array<FieldSpec, MAX_FIELDS> fields;   // 14 FieldSpec objects
+
 };
 
 inline const TypeSpec& type_spec(char t) {
-    static const TypeSpec UNKNOWN{0, 0, {}};
 
-    static const TypeSpec S{12, 1, {{
-        {1, true}, // Event Code
-    }}};
+    // Unknown Type.
+    static const TypeSpec UNKNOWN{0, 0, 
+        {
+            
+        }
+    };
 
-    static const TypeSpec R{39, 14, {{
-        {8, true},  // Stock
-        {1, true},  // Market Category
-        {1, true},  // Financial Status Indicator
-        {4, false}, // Round Lot Size
-        {1, true},  // Round Lots Only
-        {1, true},  // Issue Classification
-        {2, true},  // Issue Sub-Type
-        {1, true},  // Authenticity
-        {1, true},  // Short Sale Threshold Indicator
-        {1, true},  // IPO Flag
-        {1, true},  // LULD Reference Price Tier
-        {1, true},  // ETP Flag
-        {4, false}, // ETP Leverage Factor
-        {1, true},  // Inverse Indicator
-    }}};
+    // System Event.
+    static const TypeSpec S {12, 1, 
+        
+        {
+            {
+                {1, true} // Event Code
+            }
+        }
 
-    static const TypeSpec A{36, 5, {{
-        {8, false}, // Order Reference Number
-        {1, true},  // Buy/Sell Indicator
-        {4, false}, // Shares
-        {8, true},  // Stock
-        {4, false}, // Price
-    }}};
+    };
 
-    static const TypeSpec F{40, 6, {{
-        {8, false}, // Order Reference Number
-        {1, true},  // Buy/Sell Indicator
-        {4, false}, // Shares
-        {8, true},  // Stock
-        {4, false}, // Price
-        {4, true},  // Attribution (MPID)
-    }}};
+    // Stock Directory.
+    static const TypeSpec R{39, 14,
+        {
+            {
+                {8, true},  // Stock
+                {1, true},  // Market Category
+                {1, true},  // Financial Status Indicator
+                {4, false}, // Round Lot Size
+                {1, true},  // Round Lots Only
+                {1, true},  // Issue Classification
+                {2, true},  // Issue Sub-Type
+                {1, true},  // Authenticity
+                {1, true},  // Short Sale Threshold Indicator
+                {1, true},  // IPO Flag
+                {1, true},  // LULD Reference Price Tier
+                {1, true},  // ETP Flag
+                {4, false}, // ETP Leverage Factor
+                {1, true}  // Inverse Indicator
+            }
+        }
+    };
 
-    static const TypeSpec E{31, 3, {{
-        {8, false}, // Order Reference Number
-        {4, false}, // Executed Shares
-        {8, false}, // Match Number
-    }}};
+    // Add Order.
+    static const TypeSpec A{36, 5, 
+        {
+            {
+                {8, false}, // Order Reference Number
+                {1, true},  // Buy/Sell Indicator
+                {4, false}, // Shares
+                {8, true},  // Stock
+                {4, false} // Price
+            }
+        }
+    };
 
-    static const TypeSpec C{36, 5, {{
-        {8, false}, // Order Reference Number
-        {4, false}, // Executed Shares
-        {8, false}, // Match Number
-        {1, true},  // Printable
-        {4, false}, // Execution Price
-    }}};
+    // Adder Order with MPID.
+    static const TypeSpec F{40, 6, 
+        {
+            {
+                {8, false}, // Order Reference Number
+                {1, true},  // Buy/Sell Indicator
+                {4, false}, // Shares
+                {8, true},  // Stock
+                {4, false}, // Price
+                {4, true}  // Attribution (MPID)
+            }
+        }
+    };
 
-    static const TypeSpec X{23, 2, {{
-        {8, false}, // Order Reference Number
-        {4, false}, // Cancelled Shares
-    }}};
+    // Order Executed.
+    static const TypeSpec E{31, 3, 
+        {
+            {
+                {8, false}, // Order Reference Number
+                {4, false}, // Executed Shares
+                {8, false} // Match Number
+            }
+        }
+    };
 
-    static const TypeSpec D{19, 1, {{
-        {8, false}, // Order Reference Number
-    }}};
+    // Order Executed With Price.
+    static const TypeSpec C{36, 5, 
+        {
+            {
+                {8, false}, // Order Reference Number
+                {4, false}, // Executed Shares
+                {8, false}, // Match Number
+                {1, true},  // Printable
+                {4, false} // Execution Price
+            }
+        }
+    };
 
-    static const TypeSpec U{35, 4, {{
-        {8, false}, // Original Order Reference Number
-        {8, false}, // New Order Reference Number
-        {4, false}, // Shares
-        {4, false}, // Price
-    }}};
+    // Order Cancel.
+    static const TypeSpec X{23, 2, 
+        {
+            {
+                {8, false}, // Order Reference Number
+                {4, false} // Cancelled Shares
+            }
+        }
+    };
+
+    // Order Delete.
+    static const TypeSpec D{19, 1, 
+        {
+            {
+                {8, false} // Order Reference Number
+            }
+        }
+    };
+
+    // Order Replace.
+    static const TypeSpec U{35, 4, 
+        {
+            {
+                {8, false}, // Original Order Reference Number
+                {8, false}, // New Order Reference Number
+                {4, false}, // Shares
+                {4, false} // Price
+            }
+        }
+    };
 
     switch (t) {
         case 'S': return S;
@@ -119,6 +181,7 @@ inline const TypeSpec& type_spec(char t) {
         case 'U': return U;
         default:  return UNKNOWN;
     }
+
 }
 
 struct DecodedMessage {
