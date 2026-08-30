@@ -50,7 +50,7 @@ inline const TypeSpec& type_spec(char t) {
     // Unknown Type.
     static const TypeSpec UNKNOWN{0, 0, 
         {
-            
+
         }
     };
 
@@ -249,19 +249,19 @@ inline DecodedMessage decode_one(const uint8_t* body, size_t len, uint64_t seq_n
     size_t off = COMMON_HEADER_LEN;
     m.field_count = spec.field_count;
 
-    for (int k = 0; k < spec.field_count; ++k) { // count from 0 to the max # of fields in a message.
+    for (int k = 0; k < spec.field_count; ++k) {
 
-        // extract fields from spec.
+        // extract a particular field at fields[k] in spec.
         const FieldSpec& f = spec.fields[static_cast<size_t>(k)];
 
-        if (f.is_ascii) { // if the field is ASCII
+        if (f.is_ascii) { // if the field is ASCII text (like Stock, Buy/Sell Indicator, or Event Code)
 
-            m.field_str[static_cast<size_t>(k)] =
-                std::string(reinterpret_cast<const char*>(body + off), f.width);
+            // add it to field_str array in a message.
+            m.field_str[static_cast<size_t>(k)] = std::string(reinterpret_cast<const char*>(body + off), f.width);
                 
         }
         
-        else {
+        else { // if the field is a number (like Shares, Price, or an Order Reference Number)
 
             uint64_t v = 0;
 
@@ -281,18 +281,25 @@ inline DecodedMessage decode_one(const uint8_t* body, size_t len, uint64_t seq_n
 
 }
 
-// Reads a stream of [2-byte big-endian length][message bytes] blocks until
-// EOF -- the format shared by a MoldUDP64 message block and a raw NASDAQ
-// historical ITCH sample file.
+/*
+Reads a stream of [2-byte big-endian length][message bytes] blocks until
+EOF. It's a format shared by a MoldUDP64 message block and a raw NASDAQ
+historical ITCH sample file.
+*/
 inline std::vector<DecodedMessage> decode_all(std::istream& in) {
+
     std::vector<DecodedMessage> out;
     uint64_t seq = 0;
 
     while (true) {
+
         unsigned char len_bytes[2];
         in.read(reinterpret_cast<char*>(len_bytes), 2);
         auto got = in.gcount();
-        if (got == 0) break; // clean EOF between blocks
+
+        if (got == 0) {
+            break; // clean EOF between blocks
+        }
 
         if (got != 2) {
             DecodedMessage m;
@@ -303,22 +310,29 @@ inline std::vector<DecodedMessage> decode_all(std::istream& in) {
         }
 
         uint16_t len = (static_cast<uint16_t>(len_bytes[0]) << 8) | len_bytes[1];
-        std::vector<uint8_t> body(len);
-        if (len > 0) in.read(reinterpret_cast<char*>(body.data()), len);
+        std::vector<uint8_t> body(len); // create a vector with len elements alreade there.
 
-        if (static_cast<uint16_t>(in.gcount()) != len) {
+        if (len > 0) {
+            // in.read(dest, n) -> read n bytes from in (the file or stdin) and write into dest (buffer).
+            in.read( reinterpret_cast<char*>(body.data()) , len );
+        }
+
+        if ( static_cast<uint16_t>( in.gcount() ) != len ) {
+
             DecodedMessage m;
             m.seq_num = seq;
             m.error_truncated = true;
             out.push_back(m);
             break;
+
         }
 
-        out.push_back(decode_one(body.data(), body.size(), seq));
+        out.push_back( decode_one( body.data(), body.size(), seq ) ); // read FROM the buffer.
         ++seq;
     }
 
     return out;
+
 }
 
 } // namespace itch
