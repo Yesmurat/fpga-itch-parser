@@ -293,15 +293,15 @@ inline std::vector<DecodedMessage> decode_all(std::istream& in) {
 
     while (true) {
 
-        unsigned char len_bytes[2];
-        in.read(reinterpret_cast<char*>(len_bytes), 2);
-        auto got = in.gcount();
+        unsigned char len_prefix[2];
+        in.read(reinterpret_cast<char*>(len_prefix), 2);
+        auto bytes_read = in.gcount();
 
-        if (got == 0) {
+        if (bytes_read == 0) {
             break; // clean EOF between blocks
         }
 
-        if (got != 2) {
+        if (bytes_read != 2) {
             DecodedMessage m;
             m.seq_num = seq;
             m.error_truncated = true;
@@ -309,8 +309,8 @@ inline std::vector<DecodedMessage> decode_all(std::istream& in) {
             break;
         }
 
-        uint16_t len = (static_cast<uint16_t>(len_bytes[0]) << 8) | len_bytes[1];
-        std::vector<uint8_t> body(len); // create a vector with len elements alreade there.
+        uint16_t len = (static_cast<uint16_t>(len_prefix[0]) << 8) | len_prefix[1];
+        std::vector<uint8_t> body(len); // vectory "body" with "len" elements.
 
         if (len > 0) {
             // in.read(dest, n) -> read n bytes from in (the file or stdin) and write into dest (buffer).
@@ -327,7 +327,10 @@ inline std::vector<DecodedMessage> decode_all(std::istream& in) {
 
         }
 
-        out.push_back( decode_one( body.data(), body.size(), seq ) ); // read FROM the buffer.
+        // body.data() -> where the raw bytes live
+        // body.size() -> how many there are
+        // seq         -> which message number is this
+        out.push_back( decode_one( body.data(), body.size(), seq ) );
         ++seq;
     }
 
