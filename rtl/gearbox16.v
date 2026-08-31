@@ -16,13 +16,14 @@ module gearbox16 #(
     input  wire        s_axis_tlast,
     input  wire        s_axis_tuser,
 
-    // read side - pull-based (see doc comment above for the settle-cycle contract)
+    // read side: rd_len pops bytes off the front; the shift is registered,
+    // so pulled data lands one clock later
     input  wire [3:0]              rd_len,
     output wire [8*GB_BYTES-1:0]   data,              // byte 0 = oldest unconsumed byte
     output wire [GB_BYTES-1:0]     eop,               // per-byte tlast marker
     output wire [GB_BYTES-1:0]     err,               // per-byte tuser marker
     output wire [4:0]              count,             // 0..GB_BYTES valid bytes buffered
-    output wire                    has_eop_buffered   // lookahead only -- see doc comment
+    output wire                    has_eop_buffered   // eop present among buffered bytes
 );
 
     reg [8*GB_BYTES-1:0] gb_data;
@@ -38,7 +39,7 @@ module gearbox16 #(
     wire [GB_BYTES-1:0] gb_avail_mask = ({GB_BYTES{1'b1}} >> (GB_BYTES - gb_count));
     assign has_eop_buffered = |(gb_eop & gb_avail_mask);
 
-    // Number of valid bytes in this input beat (0..8) -- same tkeep lookup the vendored modules use.
+    // valid bytes in this beat, from tkeep (0..8)
     function [3:0] keep2count;
         input [7:0] k;
         casez (k)
@@ -90,7 +91,7 @@ module gearbox16 #(
 
         gb_count_next = gb_count - rd_len;
 
-        // 2) append this cycle's accepted input beat right after whatever is left post-slide
+        // 2) append the new beat after whatever survived the slide
         if (s_axis_tvalid && s_axis_tready) begin
 
             for (gi = 0; gi < 8; gi = gi + 1) begin
@@ -113,8 +114,7 @@ module gearbox16 #(
 
         end
 
-        // 3) decide readiness for the *next* beat based on where the
-        //    buffer will actually sit once this cycle's slide+append settle
+        // 3) readiness for the next beat, based on where we'll sit after this settles
         s_axis_tready_next = (gb_count_next + 5'd8 <= GB_BYTES[4:0]);
 
     end

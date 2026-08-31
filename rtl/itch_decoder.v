@@ -3,103 +3,78 @@
 
 /*
 ------------------------------------------------------------------
-itch_decoder: table-driven field extractor for the 9 in-scope NASDAQ
-TotalView-ITCH 5.0 message types (System Event 'S', Stock Directory
-'R', Add Order 'A', Add Order w/ MPID 'F', Order Executed 'E', Order
-Executed With Price 'C', Order Cancel 'X', Order Delete 'D', Order
-Replace 'U'). All other ITCH 5.0 message types are out of scope and
-are reported via m_dec_error_unknown_type.
+itch_decoder: table-driven field extractor for the 9 in-scope ITCH
+5.0 message types (System Event 'S', Stock Directory 'R', Add Order
+'A'/'F', Order Executed 'E'/'C', Order Cancel 'X', Order Delete 'D',
+Order Replace 'U'). Anything else reports m_dec_error_unknown_type.
 
-Field layouts are transcribed directly from NASDAQ's published
-TotalView-ITCH 5.0 Interface Specification (v5.0, 03/06/2015), section
-4, and deliberately mirror cpp/itch_model.hpp's tables field-for-field
-so a transcription mistake in one implementation is easy to spot
-against the other (that C++ model is this module's golden-model
-cross-check, run as a subprocess from sim/test_itch.py).
+Field layouts come from NASDAQ's ITCH 5.0 spec (v5.0, 03/06/2015),
+section 4, and mirror cpp/itch_model.hpp's tables field-for-field -
+that C++ model is the golden-model cross-check, run as a subprocess
+from sim/test_itch.py.
 
-Frontend-agnostic input: this module doesn't know or care whether its
-input came from moldudp64_deframer.v (live/transport path) or
-itch_raw_deframer.v (raw historical-file path) -- both present the
-same s_msg_payload_axis_ / s_msg_hdr_ port shape (body bytes re-aligned
-to byte 0, plus a held-until-accepted sideband descriptor with the
-declared length and type).
+Frontend-agnostic: doesn't care whether input came from
+moldudp64_deframer.v or itch_raw_deframer.v, since both present the
+same s_msg_payload_axis_/s_msg_hdr_ shape.
 
-Why table-driven, not state-per-field: the 9 types range from 1 field
-(System Event) to 14 fields (Stock Directory) after the shared 11-byte
-common header (type + stock_locate + tracking_number + timestamp). A
-literal state-per-field FSM would need dozens of states across 9
-types. Instead there's a fixed ~9-state FSM: two states pull the
-common header, then ONE generic FIELD_PULL/FIELD_SETTLE loop pulls
-every per-type field, driven by type_field_count()/field_width()/
-field_is_ascii() lookup functions keyed on the message type byte.
-Every field in every one of the 9 types is <=8 bytes (verified against
-the spec), so -- same constraint moldudp64_deframer.v's own header
-parse relies on -- no field ever straddles one gearbox pull.
+Table-driven, not state-per-field: types range from 1 field (System
+Event) to 14 (Stock Directory), so a literal state per field would
+mean dozens of states. Instead there's a fixed ~9-state FSM: two
+states pull the common header, then one FIELD_PULL/FIELD_SETTLE loop
+pulls every per-type field, driven by type_field_count()/
+field_width()/field_is_ascii() keyed on the type byte. Every field is
+<=8 bytes, so none ever straddles a gearbox pull.
 
-Each type's total length is FIXED (unlike MoldUDP64 blocks, whose
-length is a runtime field) and known purely from the type byte via
-type_total_length(). This is checked in IDLE against the frontend's
-declared s_msg_length *before* a single body byte is even touched --
-a cheap structural validation (m_dec_error_length_mismatch) the
-runtime-only truncation check below can't do.
+Each type's total length is fixed and known from the type byte
+(type_total_length()) - unlike MoldUDP64 blocks, whose length is a
+runtime field. Checked in IDLE against the frontend's declared
+s_msg_length before touching a single body byte
+(m_dec_error_length_mismatch).
 
-Output field-slot design: dedicated ports for the always-meaningful
-common-header fields (m_dec_msg_type/stock_locate/tracking_number/
-timestamp, plus a seq_num passthrough), and N_SLOTS generic 64-bit
-slots (m_dec_field_data, flattened into one packed vector -- matches
-the Verilog-2001 style used throughout this repo, no port-array
-sugar) for the per-type tail. Slot k lives at
-m_dec_field_data[(k+1)*64-1 -: 64]. N_SLOTS=14 exactly fits the widest
-type (Stock Directory); 64 bits/slot exactly fits the widest single
-field (8-byte order references, match numbers, stock symbols).
-Per-type slot meanings (in field_idx order, matching cpp/itch_model.hpp):
+Output: dedicated ports for the always-present header fields, plus
+N_SLOTS generic 64-bit slots (m_dec_field_data, flattened into one
+packed vector) for the per-type tail. Slot k lives at
+m_dec_field_data[(k+1)*64-1 -: 64]. N_SLOTS=14 fits Stock Directory;
+64 bits/slot fits the widest field. Per-type slot meanings (matching
+cpp/itch_model.hpp):
 
-  S (12B): [0]=Event Code
-  R (39B): [0]=Stock [1]=Market Category [2]=Financial Status Indicator
-           [3]=Round Lot Size [4]=Round Lots Only [5]=Issue Classification
-           [6]=Issue Sub-Type [7]=Authenticity [8]=Short Sale Threshold Indicator
-           [9]=IPO Flag [10]=LULD Reference Price Tier [11]=ETP Flag
-           [12]=ETP Leverage Factor [13]=Inverse Indicator
-  A (36B): [0]=Order Reference Number [1]=Buy/Sell Indicator [2]=Shares
-           [3]=Stock [4]=Price
-  F (40B): same as A, plus [5]=Attribution (MPID)
-  E (31B): [0]=Order Reference Number [1]=Executed Shares [2]=Match Number
-  C (36B): same as E, plus [3]=Printable [4]=Execution Price
-  X (23B): [0]=Order Reference Number [1]=Cancelled Shares
-  D (19B): [0]=Order Reference Number
-  U (35B): [0]=Original Order Reference Number [1]=New Order Reference Number
-           [2]=Shares [3]=Price
+    S (12B): [0]=Event Code
+    R (39B): [0]=Stock [1]=Market Category [2]=Financial Status Indicator
+             [3]=Round Lot Size [4]=Round Lots Only [5]=Issue Classification
+             [6]=Issue Sub-Type [7]=Authenticity [8]=Short Sale Threshold Indicator
+             [9]=IPO Flag [10]=LULD Reference Price Tier [11]=ETP Flag
+             [12]=ETP Leverage Factor [13]=Inverse Indicator
+    A (36B): [0]=Order Reference Number [1]=Buy/Sell Indicator [2]=Shares
+             [3]=Stock [4]=Price
+    F (40B): same as A, plus [5]=Attribution (MPID)
+    E (31B): [0]=Order Reference Number [1]=Executed Shares [2]=Match Number
+    C (36B): same as E, plus [3]=Printable [4]=Execution Price
+    X (23B): [0]=Order Reference Number [1]=Cancelled Shares
+    D (19B): [0]=Order Reference Number
+    U (35B): [0]=Original Order Reference Number [1]=New Order Reference Number
+             [2]=Shares [3]=Price
 
-ASCII fields (Stock, MPID, single-char flags, ...) are packed in
-arrival order, left-justified in their slot, zero-padded above their
-width -- exactly the wire's own left-justified/space-padded
-convention, no byte reversal. Integer fields are big-endian on the
-wire and are byte-reversed into a right-justified unsigned value,
-same convention moldudp64_deframer.v uses for its own header fields.
+ASCII fields are packed in arrival order, no reversal, matching the
+wire's own left-justified/space-padded convention. Integer fields are
+big-endian and get byte-reversed into a right-justified value, same
+as moldudp64_deframer.v.
 
-Errors are tagged PER DECODED-MESSAGE EVENT (alongside that message's
-own m_dec_valid pulse), not a coarse module-level status bit like the
-deframer's error_truncated -- possible here because the input is
-already message-framed by the upstream module (its own tlast always
-lands on a message boundary), so there's never ambiguity about which
-message an error belongs to. Three flags, checked in this order:
-m_dec_error_unknown_type (type byte not in the table),
-m_dec_error_length_mismatch (declared length doesn't match the type's
-fixed length), m_dec_error_truncated (declared length was fine, but
-the byte stream ended early). All three route through DRAIN -- a copy
-of moldudp64_deframer.v's WAIT_NEXT/capture-at-pull-time pattern --
-so every input message, success or error, produces exactly one
-m_dec_valid event, keeping the 1:1 contract uniform for testbench
-diffing.
+Errors are tagged per decoded-message event, not a coarse
+module-level flag - possible since input is already message-framed,
+so there's never ambiguity about which message an error belongs to.
+Three flags, checked in order: m_dec_error_unknown_type (type not in
+the table), m_dec_error_length_mismatch (declared length doesn't
+match), m_dec_error_truncated (stream ended early). All three route
+through DRAIN (a copy of moldudp64_deframer.v's WAIT_NEXT), so every
+message - success or error - produces exactly one m_dec_valid
+event.
 
-Both hard-won patterns from moldudp64_deframer.v apply here exactly
-where they applied there: settle-cycle (every gb_rd_len pull needs one
-full clock before its result is trusted -- HDR_A/HDR_B/FIELD_PULL each
-have a dedicated *_SETTLE step, matching the gearbox's own contract)
-and capture-at-pull-time (DRAIN's eop tracking is a register captured
-at issue time, drain_eop_consumed, never a live has_eop_buffered
-re-check after the fact -- that re-check bug is exactly what deadlocked
-the deframer's own MSG_DONE before it was fixed there).
+Same two patterns as moldudp64_deframer.v: settle-cycle (every
+gb_rd_len pull needs one clock before it's trusted - HDR_A/HDR_B/
+FIELD_PULL each get a *_SETTLE step) and capture-at-pull-time
+(DRAIN's eop tracking is captured at issue time, not re-derived after
+- that re-check bug is what deadlocked the deframer's MSG_DONE
+before it was fixed there).
 ------------------------------------------------------------------
 */
 
@@ -109,7 +84,7 @@ module itch_decoder #(
     input wire clk,
     input wire rst,
 
-    // From either frontend (moldudp64_deframer.v or itch_raw_deframer.v) -- identical shape
+    // From either frontend (moldudp64_deframer.v or itch_raw_deframer.v) - identical shape
     input  wire [63:0] s_msg_payload_axis_tdata,
     input  wire [7:0 ] s_msg_payload_axis_tkeep,
     input  wire        s_msg_payload_axis_tvalid,
@@ -122,8 +97,7 @@ module itch_decoder #(
     input  wire [15:0] s_msg_length,
     input  wire [7:0 ] s_msg_type,
 
-    // Decoded-message descriptor (hold-until-accepted, same convention as
-    // the frontends' own m_msg_hdr_valid)
+    // decoded-message descriptor, hold-until-accepted like the frontends' m_msg_hdr_valid
     output reg                     m_dec_valid,
     input  wire                    m_dec_ready,
     output reg  [63:0]             m_dec_seq_num,       // passthrough
@@ -159,13 +133,7 @@ module itch_decoder #(
     reg       drain_settle       = 1'b0; // last DRAIN pull hasn't landed yet
     reg       drain_eop_consumed = 1'b0; // captured at pull time, not re-derived after
 
-    // ------------------------------------------------------------------
-    // Per-type field tables. Total length and field count are keyed only
-    // on the type byte; field width/encoding additionally need the field
-    // index. See the module doc comment above for the field-by-field
-    // meaning of each (type, k) pair -- transcribed 1:1 from
-    // cpp/itch_model.hpp's TypeSpec tables.
-    // ------------------------------------------------------------------
+    // -- per-type field tables (transcribed 1:1 from cpp/itch_model.hpp) --
 
     function [15:0] type_total_length;
         input [7:0] t;
@@ -304,7 +272,7 @@ module itch_decoder #(
     wire       cur_field_is_ascii = field_is_ascii(m_dec_msg_type, field_idx);
 
     // ------------------------------------------------------------------
-    // Gearbox (extracted, shared with itch_raw_deframer.v -- see rtl/gearbox16.v)
+    // Gearbox (extracted, shared with itch_raw_deframer.v - see rtl/gearbox16.v)
     // ------------------------------------------------------------------
 
     reg [3:0] gb_rd_len;
@@ -324,7 +292,7 @@ module itch_decoder #(
         .s_axis_tvalid (s_msg_payload_axis_tvalid),
         .s_axis_tready (s_msg_payload_axis_tready),
         .s_axis_tlast  (s_msg_payload_axis_tlast),
-        .s_axis_tuser  (1'b0), // no error/tuser concept on this bus -- only tlast marks message end
+        .s_axis_tuser  (1'b0), // no error/tuser concept on this bus - only tlast marks message end
         .rd_len            (gb_rd_len),
         .data              (gb_data),
         .eop               (gb_eop),
@@ -332,9 +300,8 @@ module itch_decoder #(
         .has_eop_buffered  (gb_has_eop_buffered)
     );
 
-    // DRAIN's per-cycle discard pull: consume min(gb_count, 8) bytes, and
-    // report whether that pull's own bytes include the eop bit -- must be
-    // captured into drain_eop_consumed at issue time (see doc comment).
+    // DRAIN's discard pull: min(gb_count, 8) bytes, plus whether it
+    // includes eop - captured into drain_eop_consumed at issue time.
     wire [3:0]           drain_pull_len     = (gb_count > 8) ? 4'd8 : gb_count[3:0];
     wire [GB_BYTES-1:0]  drain_pull_mask    = ({GB_BYTES{1'b1}} >> (GB_BYTES - drain_pull_len));
     wire                 drain_pull_has_eop = |(gb_eop & drain_pull_mask);
@@ -367,8 +334,7 @@ module itch_decoder #(
 
         end else begin
 
-            // Same 1-cycle-lagging busy pattern moldudp64_deframer.v and
-            // the vendored RX modules use.
+            // same 1-cycle-lagging busy pattern the deframer and vendored modules use
             busy <= (state != IDLE);
 
             case (state)
@@ -420,16 +386,9 @@ module itch_decoder #(
                 end
 
                 HDR_A_SETTLE: begin
-                    // gb_rd_len must stay at the value HDR_A just issued for
-                    // this ENTIRE cycle (the gearbox's combinational slide
-                    // reads it live, every cycle, and only lands the result
-                    // at the edge leaving this cycle) -- so the reset to 0
-                    // happens here, in this same branch, not deferred to
-                    // HDR_B. Deferring it one state further would leave
-                    // gb_rd_len at 5 for a second cycle too, double-shifting
-                    // the buffer -- confirmed by hand-tracing the timing
-                    // against moldudp64_deframer.v's own (correct) settle
-                    // states before writing this.
+                    // gb_rd_len has to drop to 0 THIS cycle, not next -
+                    // the gearbox reads it live every cycle, so leaving it
+                    // at 5 for a second cycle double-shifts the buffer.
                     gb_rd_len <= 4'd0;
                     state     <= HDR_B;
                 end
@@ -495,9 +454,7 @@ module itch_decoder #(
 
                 DRAIN: begin
 
-                    // Same issue-then-settle alternation, and the same
-                    // capture-at-pull-time reasoning, as
-                    // moldudp64_deframer.v's WAIT_NEXT -- see doc comment.
+                    // same issue-then-settle alternation as moldudp64_deframer.v's WAIT_NEXT
                     gb_rd_len <= 4'd0;
 
                     if (drain_settle) begin

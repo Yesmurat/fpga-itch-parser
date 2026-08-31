@@ -4,16 +4,13 @@
 /*
 ------------------------------------------------------------------
 feed_parser_top: the live/transport path, wired end to end --
-rtl/vendor/udp_rx_top.v (Ethernet -> IPv4 -> UDP) -> moldudp64_deframer.v
-(de-block, re-align, sequence/gap-detect) -> itch_decoder.v (per-type
-field extraction). No logic of its own beyond port connections, same
-role udp_rx_top.v itself already plays one layer down.
+udp_rx_top.v (Ethernet -> IPv4 -> UDP) -> moldudp64_deframer.v
+(de-block, re-align, sequence/gap-detect) -> itch_decoder.v. No logic
+of its own beyond port connections.
 
 itch_decoder.v is frontend-agnostic -- this is one of two places it's
-instantiated; rtl/itch_raw_pipeline_top.v is the other, wiring the
-same decoder to itch_raw_deframer.v for the raw-historical-file path
-instead. Both present the same m_msg_payload_axis_/m_msg_hdr_ shape to
-the decoder, so it can't tell them apart.
+instantiated; rtl/itch_raw_pipeline_top.v is the other, for the raw-
+historical-file path. Both present the same shape to the decoder.
 ------------------------------------------------------------------
 */
 
@@ -64,9 +61,9 @@ module feed_parser_top #(
     output wire dec_busy
 );
 
-    // udp_rx_top's UDP header outputs are unused downstream (moldudp64_deframer
-    // only needs the payload stream) but must still be given somewhere to
-    // land and a ready so the RX chain doesn't stall waiting on it.
+    // udp_rx_top's UDP header outputs go unused (moldudp64_deframer only
+    // needs the payload stream), but still need somewhere to land and a
+    // ready so the RX chain doesn't stall on them.
     wire        udp_hdr_valid;
     wire [15:0] udp_source_port;
     wire [15:0] udp_dest_port;

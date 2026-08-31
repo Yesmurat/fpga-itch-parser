@@ -2,18 +2,14 @@
 `default_nettype none
 
 /*
-------------------------------------------------------------------
-itch_raw_pipeline_top: itch_raw_deframer.v -> itch_decoder.v, wired
-back to back. Exists purely so cocotb has one bindable hierarchy to
-compile against -- same reason rtl/vendor/udp_rx_top.v exists for the
-Ethernet/IP/UDP chain. No logic of its own beyond port connections.
+itch_raw_pipeline_top: itch_raw_deframer.v -> itch_decoder.v wired
+back to back. Exists so cocotb has one bindable hierarchy, same reason
+rtl/vendor/udp_rx_top.v exists. No logic of its own.
 
-This is the raw-historical-file path: feed s_raw_axis_* a continuous
-[2-byte length][ITCH message] block stream (no MoldUDP64 wrapper) and
-get decoded messages out on m_dec_*, exercising the same itch_decoder
-that also serves moldudp64_deframer.v's live/transport path in
-rtl/feed_parser_top.v.
-------------------------------------------------------------------
+The raw-historical-file path: feed s_raw_axis_* a [2-byte length][ITCH
+message] block stream (no MoldUDP64 wrapper), get decoded messages out
+on m_dec_*. Exercises the same itch_decoder that serves the live path
+in rtl/feed_parser_top.v.
 */
 
 module itch_raw_pipeline_top #(
