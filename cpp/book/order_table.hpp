@@ -43,9 +43,6 @@ namespace book {
                 uint64_t order_ref = 0;
                 Order    order{}; // The {} is a default member initializer.
             };
-            
-            std::array<Slot, CAPACITY> slots_{};
-            size_t count_ = 0;
 
             static size_t hash(uint64_t order_ref) {
 
@@ -58,7 +55,34 @@ namespace book {
                 return static_cast<size_t>(h);
             }
             
+            std::array<Slot, CAPACITY> slots_{};
+            size_t count_ = 0;
+            
             size_t probe(uint64_t order_ref) const { // returns the slot index for this key
+
+                size_t i = hash(order_ref) & (CAPACITY - 1);
+
+                for (size_t steps = 0 ; steps < CAPACITY; steps++, i = ((i + 1) & (CAPACITY - 1)) ) {
+
+                    if (!slots_[i].occupied && !slots_[i].tombstone) {
+                        return i;
+                    }
+
+                    else if (slots_[i].occupied && slots_[i].order_ref == order_ref) {
+                        // return this index.
+                        return i;
+                    }
+
+                    else if (slots_[i].occupied && slots_[i].order_ref != order_ref) {
+                        continue;
+                    }
+
+                    else if (slots_[i].tombstone) {
+                        // remember this as a candidate slot for insertion.
+                        continue;
+                    }
+
+                }
 
             }
 
