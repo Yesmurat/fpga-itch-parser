@@ -59,12 +59,36 @@ void test_erase_missing() {
 
 }
 
+void test_already_exists() {
+
+    uint64_t order_ref = 12345;
+    book::Order order1 {0, true, 100, 1234500};
+    book::Order order2 {1, false, 150, 2345600};
+
+    book::OrderTable table;
+
+    auto result1 = table.insert(order_ref, order1);
+    assert(result1 == book::OrderTable::InsertResult::Ok);
+
+    auto result2 = table.insert(order_ref, order2);
+    assert(result2 == book::OrderTable::InsertResult::AlreadyExists);
+
+    book::Order* order1_found = table.find(order_ref);
+    assert(order1_found != nullptr);
+    assert(order1_found->is_buy == order1.is_buy);
+    assert(order1_found->price == order1.price);
+    assert(order1_found->shares == order1.shares);
+    assert(order1_found->symbol_index == order1.symbol_index);
+
+}
+
 int main (int argc, char** argv) {
 
     test_insert_and_find();
     test_find_missing();
     test_erase();
     test_erase_missing();
+    test_already_exists();
 
     puts("all Order Table tests passed.\n");
     return 0;
