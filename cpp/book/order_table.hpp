@@ -22,6 +22,30 @@ namespace book {
 
             InsertResult insert(uint64_t order_ref, const Order& order) {
 
+                if (count_ >= 0.9 * CAPACITY) {
+                    return InsertResult::Full;
+                }
+
+                size_t idx = probe(order_ref);
+
+                if (slots_[idx].occupied && slots_[idx].order_ref == order_ref) {
+                    return InsertResult::AlreadyExists;
+                }
+
+                else {
+
+                    slots_[idx] = {
+                        .occupied = true,
+                        .tombstone = false,
+                        .order_ref = order_ref,
+                        .order = order
+                    };
+
+                    count_++;
+                    return InsertResult::Ok;
+
+                }
+
             }
 
             Order* find(uint64_t order_ref) { // nullptr if not found
