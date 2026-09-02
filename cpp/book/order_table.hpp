@@ -49,14 +49,36 @@ namespace book {
             }
 
             Order* find(uint64_t order_ref) { // nullptr if not found
+
+                size_t idx = probe(order_ref);
+
+                if (slots_[idx].occupied && slots_[idx].order_ref == order_ref) {
+                    return &slots_[idx].order;
+                }
+
+                else {
+                    return nullptr;
+                }
                 
             }
 
             bool erase(uint64_t order_ref) { // true if found and removed
-                
-            }
 
-            const Order* find(uint64_t order_ref) const {
+                size_t idx = probe(order_ref);
+
+                if (!slots_[idx].occupied || slots_[idx].order_ref != order_ref) {
+                    return false;
+                }
+
+                else {
+
+                    slots_[idx].occupied  = false;
+                    slots_[idx].tombstone = true;
+
+                    count_--;
+                    return true;
+
+                }
 
             }
 
@@ -84,12 +106,21 @@ namespace book {
             
             size_t probe(uint64_t order_ref) const { // returns the slot index for this key
 
+                bool found_tombstone = false;
+                size_t tombstone_idx = 0;
                 size_t i = hash(order_ref) & (CAPACITY - 1);
 
                 for (size_t steps = 0 ; steps < CAPACITY; steps++, i = ((i + 1) & (CAPACITY - 1)) ) {
 
                     if (!slots_[i].occupied && !slots_[i].tombstone) {
-                        return i;
+
+                        if (found_tombstone) {
+                            return tombstone_idx;
+                        }
+                        else {
+                            return i;
+                        }
+
                     }
 
                     else if (slots_[i].occupied && slots_[i].order_ref == order_ref) {
@@ -103,6 +134,12 @@ namespace book {
 
                     else if (slots_[i].tombstone) {
                         // remember this as a candidate slot for insertion.
+
+                        if (!found_tombstone) {
+                            tombstone_idx = i;
+                            found_tombstone = true;
+                        }
+                        
                         continue;
                     }
 
