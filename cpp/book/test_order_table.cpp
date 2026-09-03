@@ -163,6 +163,7 @@ int main (int argc, char** argv) {
     test_erase();
     test_erase_missing();
     test_already_exists();
+    test_collision();
 
     puts("all Order Table tests passed.\n");
     return 0;
