@@ -156,6 +156,29 @@ void test_collision() {
     assert(found2->price == order2.price);
 }
 
+void test_capacity_full() {
+
+    book::OrderTable table;
+    book::Order order {0, true, 100, 1234500};
+
+    size_t threshold = 58983; // for CAPACITY = 65536 -> threshold ~= 58983
+
+    for (size_t order_ref = 1; order_ref <= threshold; order_ref++) {
+
+        auto result = table.insert(order_ref, order);
+        assert(result == book::OrderTable::InsertResult::Ok);
+
+    } // populate the table up to 90% of its stated capacity.
+
+    // insert one more key -> should return full.
+    auto result1 = table.insert( (uint64_t)(threshold+1), order );
+    assert(result1 == book::OrderTable::InsertResult::Full);
+
+    auto result2 = table.insert( (uint64_t)(threshold+2), order );
+    assert(result2 == book::OrderTable::InsertResult::Full);
+    
+}
+
 int main (int argc, char** argv) {
 
     test_insert_and_find();
@@ -164,6 +187,7 @@ int main (int argc, char** argv) {
     test_erase_missing();
     test_already_exists();
     test_collision();
+    test_capacity_full();
 
     puts("all Order Table tests passed.\n");
     return 0;
