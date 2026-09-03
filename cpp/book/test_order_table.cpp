@@ -1,6 +1,7 @@
 #include "order_table.hpp"
 #include <cassert>
 #include <cstdio>
+#include <unordered_map>
 
 void test_insert_and_find() {
 
@@ -80,6 +81,79 @@ void test_already_exists() {
     assert(order1_found->shares == order1.shares);
     assert(order1_found->symbol_index == order1.symbol_index);
 
+}
+
+size_t local_hash(uint64_t order_ref) {
+
+    uint64_t h = order_ref;
+
+    h ^= (h >> 30);
+    h *= 0xbf58476d1ce4e5b9;
+    h ^= (h >> 27);
+    h *= 0x94d049bb133111eb;
+    h ^= (h >> 31);
+
+    return static_cast<size_t>(h);
+
+}
+
+void test_collision() {
+
+    const int SIZE = 1000;
+
+    // declare key-value pairs.
+    std::unordered_map<size_t, uint64_t> pairs{};
+
+    uint64_t collided_key1, collided_key2;
+    bool found_collision = false;
+
+    // populate key-value pairs.
+    for (uint64_t key = 1; key < SIZE; key++) {
+
+        size_t home = local_hash(key) & (book::OrderTable::CAPACITY - 1);
+
+        if (pairs.count(home)) {
+
+            // home is already claimed by pairs[home] -> collision,
+            // paired with the current key. Stop here.
+            collided_key1 = pairs[home];
+            collided_key2 = key;
+            found_collision = true;
+            break;
+
+        }
+
+        else {
+            pairs[home] = key;
+        }
+
+    }
+
+    assert(found_collision);
+
+    book::OrderTable table;
+    book::Order order1 {0, true, 100, 1234500};
+    book::Order order2 {1, false, 150, 2345600};
+    
+    auto result1 = table.insert(collided_key1, order1);
+    assert(result1 == book::OrderTable::InsertResult::Ok);
+    
+    auto result2 = table.insert(collided_key2, order2);
+    assert(result2 == book::OrderTable::InsertResult::Ok);
+
+    book::Order* found1 = table.find(collided_key1);
+    assert(found1 != nullptr);
+    assert(found1->symbol_index == order1.symbol_index);
+    assert(found1->is_buy == order1.is_buy);
+    assert(found1->shares == order1.shares);
+    assert(found1->price == order1.price);
+
+    book::Order* found2 = table.find(collided_key2);
+    assert(found2 != nullptr);
+    assert(found2->symbol_index == order2.symbol_index);
+    assert(found2->is_buy == order2.is_buy);
+    assert(found2->shares == order2.shares);
+    assert(found2->price == order2.price);
 }
 
 int main (int argc, char** argv) {
