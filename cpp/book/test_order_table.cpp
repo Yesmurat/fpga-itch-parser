@@ -179,6 +179,34 @@ void test_capacity_full() {
     
 }
 
+void test_sustained_reuse() {
+
+    uint64_t loop_count_max = 10 * book::OrderTable::CAPACITY;
+    book::OrderTable table;
+    book::Order order {0, true, 100, 1234500};
+
+    for (uint64_t order_ref = 1; order_ref <= loop_count_max; order_ref++) {
+
+        auto is_inserted = table.insert(order_ref, order);
+        assert(is_inserted == book::OrderTable::InsertResult::Ok);
+
+        book::Order* found1 = table.find(order_ref);
+        assert(found1 != nullptr);
+        assert(found1->is_buy == order.is_buy);
+        assert(found1->price == order.price);
+        assert(found1->shares == order.shares);
+        assert(found1->symbol_index == order.symbol_index);
+
+        bool erased = table.erase(order_ref);
+        assert(erased == true);
+
+        book::Order* found2 = table.find(order_ref);
+        assert(found2 == nullptr);
+
+    }
+
+}
+
 int main (int argc, char** argv) {
 
     test_insert_and_find();
@@ -188,6 +216,7 @@ int main (int argc, char** argv) {
     test_already_exists();
     test_collision();
     test_capacity_full();
+    test_sustained_reuse();
 
     puts("all Order Table tests passed.\n");
     return 0;
