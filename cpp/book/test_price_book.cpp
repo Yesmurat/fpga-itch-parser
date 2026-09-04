@@ -85,11 +85,29 @@ void test_increment_sorted_order() {
     
 }
 
+void test_increment_full() {
+
+    book::PriceBook book{true};
+    for (size_t i = 1; i <= book::PriceBook::CAPACITY; i++) {
+        auto result = book.increment(i, i*2);
+        assert(result == book::PriceBook::UpdateResult::Ok);
+    }
+
+    auto result = book.increment(500000, 200);
+    assert(result == book::PriceBook::UpdateResult::Full);
+
+    auto result1 = book.increment(1, 200);
+    assert(result1 == book::PriceBook::UpdateResult::Ok);
+    assert(book.data()[511].aggregate_shares == 202);
+
+}
+
 int main(int argc, char** argv) {
 
     test_increment_new_level();
     test_increment_existing_level();
     test_increment_sorted_order();
+    test_increment_full();
 
     puts("All Price Book tests passed.\n");
     return 0;
