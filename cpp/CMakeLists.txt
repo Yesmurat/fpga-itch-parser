@@ -32,3 +32,10 @@ target_include_directories(test_order_table PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME order_table COMMAND test_order_table)
 # Running "ctest" in the build directory will execute it and report pass/fail based
 # on its exit code.
+
+# Add a third target test_price_book from test_price_book.cpp
+add_executable(test_price_book book/test_price_book.cpp)
+
+target_include_directories(test_price_book PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_test(NAME price_book COMMAND test_price_book)
