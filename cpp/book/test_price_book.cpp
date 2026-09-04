@@ -30,10 +30,66 @@ void test_increment_existing_level() {
 
 }
 
+void test_increment_sorted_order() {
+
+    book::PriceBook book_bid{true};
+    book::PriceBook book_ask{false};
+
+    book::PriceLevel level1{305000, 200};   // $30.50, 200 shares
+    book::PriceLevel level2{125000, 450};   // $12.50, 450 shares
+    book::PriceLevel level3{498000, 75};    // $49.80, 75 shares
+    book::PriceLevel level4{210000, 1000};  // $21.00, 1000 shares
+    book::PriceLevel level5{350000, 320};   // $35.00, 320 shares
+
+    // bid.
+    auto result1_bid = book_bid.increment(level1.price, level1.aggregate_shares);
+    assert(result1_bid == book::PriceBook::UpdateResult::Ok);
+
+    auto result2_bid = book_bid.increment(level2.price, level2.aggregate_shares);
+    assert(result2_bid == book::PriceBook::UpdateResult::Ok);
+    
+    auto result3_bid = book_bid.increment(level3.price, level3.aggregate_shares);
+    assert(result3_bid == book::PriceBook::UpdateResult::Ok);
+
+    auto result4_bid = book_bid.increment(level4.price, level4.aggregate_shares);
+    assert(result4_bid == book::PriceBook::UpdateResult::Ok);
+
+    auto result5_bid = book_bid.increment(level5.price, level5.aggregate_shares);
+    assert(result5_bid == book::PriceBook::UpdateResult::Ok);
+
+    // ask.
+    auto result1_ask = book_ask.increment(level1.price, level1.aggregate_shares);
+    assert(result1_ask == book::PriceBook::UpdateResult::Ok);
+
+    auto result2_ask = book_ask.increment(level2.price, level2.aggregate_shares);
+    assert(result2_ask == book::PriceBook::UpdateResult::Ok);
+
+    auto result3_ask = book_ask.increment(level3.price, level3.aggregate_shares);
+    assert(result3_ask == book::PriceBook::UpdateResult::Ok);
+
+    auto result4_ask = book_ask.increment(level4.price, level4.aggregate_shares);
+    assert(result4_ask == book::PriceBook::UpdateResult::Ok);
+
+    auto result5_ask = book_ask.increment(level5.price, level5.aggregate_shares);
+    assert(result5_ask == book::PriceBook::UpdateResult::Ok);
+
+    assert(book_bid.count() == 5);
+    assert(book_ask.count() == 5);
+
+    std::array<uint32_t, 5> ordered_levels{125000, 210000, 305000, 350000, 498000};
+
+    for (int i = 0; i < 5; i++) {
+        assert(book_ask.data()[i].price == ordered_levels[i]);
+        assert(book_bid.data()[i].price == ordered_levels[4-i]);
+    }
+    
+}
+
 int main(int argc, char** argv) {
 
     test_increment_new_level();
     test_increment_existing_level();
+    test_increment_sorted_order();
 
     puts("All Price Book tests passed.\n");
     return 0;
