@@ -177,6 +177,22 @@ void test_decrement_not_found() {
 
 }
 
+void test_decrement_invalid() {
+
+    book::PriceBook book{true};
+    book::PriceLevel level1{305000, 200};   
+
+    auto result = book.increment(level1.price, level1.aggregate_shares);
+    assert(result == book::PriceBook::UpdateResult::Ok);
+
+    auto result1 = book.decrement(level1.price, level1.aggregate_shares + 200);
+    assert(result1 == book::PriceBook::UpdateResult::InvalidDecrement);
+
+    assert(book.count() == 1);
+    assert(book.data()[0].price == level1.price);
+    assert(book.data()[0].aggregate_shares == level1.aggregate_shares);
+}
+
 int main(int argc, char** argv) {
 
     test_increment_new_level();
@@ -186,6 +202,7 @@ int main(int argc, char** argv) {
     test_decrement_partial();
     test_decrement_to_zero();
     test_decrement_not_found();
+    test_decrement_invalid();
 
     puts("All Price Book tests passed.\n");
     return 0;
