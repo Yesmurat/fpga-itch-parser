@@ -193,6 +193,58 @@ void test_decrement_invalid() {
     assert(book.data()[0].aggregate_shares == level1.aggregate_shares);
 }
 
+void test_top10_promotion() {
+
+    book::PriceBook book{false};
+
+    book::PriceLevel level1  {410000, 150};   // $41.00, 150 shares
+    book::PriceLevel level2  {120000, 300};   // $12.00, 300 shares
+    book::PriceLevel level3  {875000, 60};    // $87.50, 60 shares
+    book::PriceLevel level4  {235000, 420};   // $23.50, 420 shares
+    book::PriceLevel level5  {990000, 25};    // $99.00, 25 shares
+    book::PriceLevel level6  {345000, 180};   // $34.50, 180 shares
+    book::PriceLevel level7  {560000, 500};   // $56.00, 500 shares
+    book::PriceLevel level8  {180000, 90};    // $18.00, 90 shares
+    book::PriceLevel level9  {720000, 275};   // $72.00, 275 shares
+    book::PriceLevel level10 {295000, 110};   // $29.50, 110 shares
+    book::PriceLevel level11 {630000, 340};   // $63.00, 340 shares
+
+    book.increment(level1.price, level1.aggregate_shares);
+    book.increment(level2.price, level2.aggregate_shares);
+    book.increment(level3.price, level3.aggregate_shares);
+    book.increment(level4.price, level4.aggregate_shares);
+    book.increment(level5.price, level5.aggregate_shares);
+    book.increment(level6.price, level6.aggregate_shares);
+    book.increment(level7.price, level7.aggregate_shares);
+    book.increment(level8.price, level8.aggregate_shares);
+    book.increment(level9.price, level9.aggregate_shares);
+    book.increment(level10.price, level10.aggregate_shares);
+    book.increment(level11.price, level11.aggregate_shares);
+
+    assert(book.count() == 11);
+
+    assert(book.data()[0].price == 120000);  // level2.
+    assert(book.data()[1].price == 180000);  // level8.
+    assert(book.data()[2].price == 235000);  // level4.
+    assert(book.data()[3].price == 295000);  // level10.
+    assert(book.data()[4].price == 345000);  // level6.
+    assert(book.data()[5].price == 410000);  // level1.
+    assert(book.data()[6].price == 560000);  // level7.
+    assert(book.data()[7].price == 630000);  // level11.
+    assert(book.data()[8].price == 720000);  // level9.
+    assert(book.data()[9].price == 875000);  // level3.
+    assert(book.data()[10].price == 990000); // level5.
+
+    book.decrement(book.data()[0].price, book.data()[0].aggregate_shares);
+    assert(book.count() == 10);
+
+    assert(book.data()[0].price == 180000); // confirm level8 shifted from index 1 to 0.
+    assert(book.data()[9].price == 990000); // confirm level5 shifted from index 10 to 9.
+    
+    assert(book.data()[9].aggregate_shares == 25);
+
+}
+
 int main(int argc, char** argv) {
 
     test_increment_new_level();
@@ -203,6 +255,7 @@ int main(int argc, char** argv) {
     test_decrement_to_zero();
     test_decrement_not_found();
     test_decrement_invalid();
+    test_top10_promotion();
 
     puts("All Price Book tests passed.\n");
     return 0;
