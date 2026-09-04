@@ -132,6 +132,14 @@ namespace book {
 
             }
 
+            size_t count() const {
+                return count_;
+            }
+
+            const PriceLevel* data() const {
+                return levels_.data(); // return the pointer to the array.
+            }
+
         private:
             size_t count_ = 0; // how many of slots are actually in use; everything from count_ onward is stale/unused.
             const bool is_buy_;
