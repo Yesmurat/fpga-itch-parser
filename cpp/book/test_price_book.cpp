@@ -5,13 +5,22 @@
 void test_increment_new_level() {
 
     book::PriceLevel level0 {250, 123450};
-    book::PriceBook book0{true};
+    book::PriceBook book_bid{true};
+    book::PriceBook book_ask{false};
 
-    auto result = book0.increment(level0.price, level0.aggregate_shares);
-    assert(result == book::PriceBook::UpdateResult::Ok);
-    assert(book0.count() == 1);
-    assert(book0.data()[0].price == level0.price);
-    assert(book0.data()[0].aggregate_shares == level0.aggregate_shares);
+    // bid assertions.
+    auto result_bid = book_bid.increment(level0.price, level0.aggregate_shares);
+    assert(result_bid == book::PriceBook::UpdateResult::Ok);
+    assert(book_bid.count() == 1);
+    assert(book_bid.data()[0].price == level0.price);
+    assert(book_bid.data()[0].aggregate_shares == level0.aggregate_shares);
+    
+    // ask assertions.
+    auto result_ask = book_ask.increment(level0.price, level0.aggregate_shares);
+    assert(result_ask == book::PriceBook::UpdateResult::Ok);
+    assert(book_ask.count() == 1);
+    assert(book_ask.data()[0].price == level0.price);
+    assert(book_ask.data()[0].aggregate_shares == level0.aggregate_shares);
 
 }
 
