@@ -128,6 +128,37 @@ void test_decrement_partial() {
     
 }
 
+void test_decrement_to_zero() {
+
+    book::PriceBook book{true};
+    book::PriceLevel level1{305000, 200};
+    book::PriceLevel level2{610000, 100};
+    book::PriceLevel level3{915000, 300};
+
+    auto inserted1 = book.increment(level1.price, level1.aggregate_shares);
+    assert(inserted1 == book::PriceBook::UpdateResult::Ok);
+
+    auto inserted2 = book.increment(level2.price, level2.aggregate_shares);
+    assert(inserted2 == book::PriceBook::UpdateResult::Ok);
+
+    auto inserted3 = book.increment(level3.price, level3.aggregate_shares);
+    assert(inserted3 == book::PriceBook::UpdateResult::Ok);
+
+    assert(book.count() == 3);
+
+    auto removed = book.decrement(level2.price, level2.aggregate_shares);
+    assert(removed == book::PriceBook::UpdateResult::Ok);
+
+    assert(book.count() == 2);
+
+    assert(book.data()[0].price == level3.price);
+    assert(book.data()[0].aggregate_shares == level3.aggregate_shares);
+
+    assert(book.data()[1].price == level1.price);
+    assert(book.data()[1].aggregate_shares == level1.aggregate_shares);
+
+}
+
 int main(int argc, char** argv) {
 
     test_increment_new_level();
@@ -135,6 +166,7 @@ int main(int argc, char** argv) {
     test_increment_sorted_order();
     test_increment_full();
     test_decrement_partial();
+    test_decrement_to_zero();
 
     puts("All Price Book tests passed.\n");
     return 0;
