@@ -111,12 +111,30 @@ void test_increment_full() {
 
 }
 
+void test_decrement_partial() {
+
+    book::PriceBook book{true};
+    book::PriceLevel new_level{305000, 200};
+
+    auto inserted = book.increment(new_level.price, new_level.aggregate_shares);
+    assert(inserted == book::PriceBook::UpdateResult::Ok);
+
+    auto shares_reduced = book.decrement(new_level.price, 100);
+    assert(shares_reduced == book::PriceBook::UpdateResult::Ok);
+
+    assert(book.count() == 1);
+    assert(book.data()[0].price == new_level.price);
+    assert(book.data()[0].aggregate_shares == 100);
+    
+}
+
 int main(int argc, char** argv) {
 
     test_increment_new_level();
     test_increment_existing_level();
     test_increment_sorted_order();
     test_increment_full();
+    test_decrement_partial();
 
     puts("All Price Book tests passed.\n");
     return 0;
