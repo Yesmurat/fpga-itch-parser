@@ -1,5 +1,5 @@
 /*
-CLI around itch_model.hpp: decodes a [2B len][msg] block stream
+CLI around itch_decoder.hpp: decodes a [2B len][msg] block stream
 (stdin, or a file path in argv[1]) and writes one line per message to
 stdout, pipe-delimited with a fixed column count. Invoked as a subprocess
 from sim/golden/itch_model.py. This binary is the actual golden model,
@@ -20,7 +20,7 @@ Position |      Column      | Source                                     |
 
 */
 
-#include "itch_model.hpp"
+#include "itch_decoder.hpp"
 
 #include <fstream>
 #include <iostream>
