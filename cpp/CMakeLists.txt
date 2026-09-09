@@ -39,3 +39,8 @@ add_executable(test_price_book book/test_price_book.cpp)
 target_include_directories(test_price_book PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_test(NAME price_book COMMAND test_price_book)
+
+# Add test_order_book from test_order_book.cpp
+add_executable(test_order_book book/test_order_book.cpp)
+target_include_directories(test_order_book PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_test(NAME order_book COMMAND test_order_book)
