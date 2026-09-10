@@ -38,9 +38,55 @@ void test_add_order_creates_level () {
 
 }
 
+void test_add_then_cancel_partial() {
+
+    book::OrderBook new_book;
+    book::BookUpdate captured{};
+
+    bool got_update = false;
+
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    };
+
+    new_book.set_callback(callback);
+
+    itch::DecodedMessage message_Add{};
+
+    message_Add.msg_type = 'A';     // message_Add type.
+    message_Add.stock_locate = 10;  // tracking ID of this order.
+    message_Add.field_int[0] = 1;   // order reference.
+
+    message_Add.field_str[1] = 'B'; // buy
+    message_Add.field_int[2] = 200; // 100 shares
+    message_Add.field_int[4] = 30;  // for $15.
+
+    new_book.apply(message_Add);
+
+    got_update = false;
+
+    itch::DecodedMessage message_Cancel{};
+
+    message_Cancel.msg_type = 'X';    // message_Cancel type.
+    message_Cancel.stock_locate = 11; // tracking ID of this order.
+    message_Cancel.field_int[0] = 1;  // order reference.
+    message_Cancel.field_int[1] = 50; // the amount to cancel.
+
+    new_book.apply(message_Cancel);
+
+    assert(got_update == true);
+    assert(captured.symbol_index == 0);
+    assert(captured.is_buy == true);
+    assert(captured.best_price == message_Add.field_int[4]);
+    assert( captured.best_shares == (message_Add.field_int[2] - message_Cancel.field_int[1]) );
+
+}
+
 int main(int argc, char** argv) {
 
     test_add_order_creates_level();
+    test_add_then_cancel_partial();
 
     return 0;
 }
