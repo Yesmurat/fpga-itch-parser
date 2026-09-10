@@ -276,6 +276,65 @@ void test_locate_capacity_exceeded() {
 
 }
 
+void test_multi_symbol_sanity_check() {
+
+    book::OrderBook new_book;
+    book::BookUpdate captured{}; // new BookUpdate struct
+
+    bool got_update = false;
+    
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    }; // a lambda expression
+
+    // assign the callback lambda expression to the private member callback_.
+    new_book.set_callback(callback);
+
+    itch::DecodedMessage message_A1{};
+    message_A1.msg_type = 'A';
+    message_A1.stock_locate = 200;
+    message_A1.field_int[0] = 20;  // order reference.
+    message_A1.field_int[2] = 400; // shares.
+    message_A1.field_int[4] = 150; // price.
+
+    new_book.apply(message_A1);
+    uint8_t symbol_index_A1 = captured.symbol_index;
+
+    itch::DecodedMessage message_A2{};
+    message_A2.msg_type = 'A';
+    message_A2.stock_locate = 300;
+    message_A2.field_int[0] = 30;  // order reference.
+    message_A2.field_int[2] = 600; // shares.
+    message_A2.field_int[4] = 300; // price.
+
+    new_book.apply(message_A2);
+    uint8_t symbol_index_A2 = captured.symbol_index;
+
+    assert(symbol_index_A1 != symbol_index_A2);
+
+    itch::DecodedMessage message_X1{};
+    message_X1.msg_type = 'X';
+    message_X1.field_int[0] = message_A1.field_int[0];  // order reference.
+    message_X1.field_int[1] = 200;                      // shares to cancel.
+
+    new_book.apply(message_X1);
+    assert(captured.symbol_index == symbol_index_A1);
+    assert(captured.best_price == message_A1.field_int[4]);
+    assert(captured.best_shares == (message_A1.field_int[2] - message_X1.field_int[1]));
+
+    itch::DecodedMessage message_X2{};
+    message_X2.msg_type = 'X';
+    message_X2.field_int[0] = message_A2.field_int[0];  // order reference.
+    message_X2.field_int[1] = 200;                      // shares to cancel.
+
+    new_book.apply(message_X2);
+    assert(captured.symbol_index == symbol_index_A2);
+    assert(captured.best_price == message_A2.field_int[4]);
+    assert(captured.best_shares == (message_A2.field_int[2] - message_X2.field_int[1]));
+
+}
+
 int main(int argc, char** argv) {
 
     test_add_order_creates_level();
@@ -284,6 +343,7 @@ int main(int argc, char** argv) {
     test_add_then_replace();
     test_error_paths_dont_fire_callback();
     test_locate_capacity_exceeded();
+    test_multi_symbol_sanity_check();
 
     return 0;
 }
