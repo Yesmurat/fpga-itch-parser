@@ -83,10 +83,52 @@ void test_add_then_cancel_partial() {
 
 }
 
+void test_add_then_delete() {
+
+    book::OrderBook new_book;
+    book::BookUpdate captured{};
+
+    bool got_update = false;
+
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    };
+
+    new_book.set_callback(callback);
+
+    itch::DecodedMessage message_Add{};
+
+    message_Add.msg_type = 'A';     // message_Add type.
+    message_Add.stock_locate = 10;  // tracking ID of this order.
+    message_Add.field_int[0] = 1;   // order reference.
+
+    message_Add.field_str[1] = 'B'; // buy
+    message_Add.field_int[2] = 300; // 100 shares
+    message_Add.field_int[4] = 45;  // for $15.
+
+    new_book.apply(message_Add);
+
+    got_update = false;
+
+    itch::DecodedMessage message_Delete{};
+
+    message_Delete.msg_type = 'D';
+    message_Delete.field_int[0] = message_Add.field_int[0];
+
+    new_book.apply(message_Delete);
+
+    assert(got_update == true);
+    assert(captured.best_price == 0);
+    assert(captured.best_shares == 0);
+
+}
+
 int main(int argc, char** argv) {
 
     test_add_order_creates_level();
     test_add_then_cancel_partial();
+    test_add_then_delete();
 
     return 0;
 }
