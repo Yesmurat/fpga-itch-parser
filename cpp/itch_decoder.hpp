@@ -95,7 +95,7 @@ namespace itch {
                     {1, true},  // Buy/Sell Indicator
                     {4, false}, // Shares
                     {8, true},  // Stock
-                    {4, false} // Price
+                    {4, false}  // Price
                 }
             }
         };
