@@ -172,12 +172,81 @@ void test_add_then_replace() {
 
 }
 
+void test_error_paths_dont_fire_callback() {
+
+    book::OrderBook new_book;
+    book::BookUpdate captured{};
+
+    bool got_update = false;
+
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    };
+
+    new_book.set_callback(callback);
+
+    // ----------------------------------------------------------------
+    // Scenario 1: Unkown reference.
+    itch::DecodedMessage message_Cancel{};
+
+    message_Cancel.msg_type = 'X';
+    message_Cancel.field_int[0] = 999; // order reference.
+    message_Cancel.field_int[1] = 125; // shares.
+
+    uint32_t orig_unknown_order_ref = new_book.report_stats().unknown_order_ref;
+
+    new_book.apply(message_Cancel);
+
+    assert(got_update == false);
+    assert(new_book.report_stats().unknown_order_ref == (orig_unknown_order_ref + 1));
+
+    // ----------------------------------------------------------------
+    // Scenario 2: Invalid reduction.
+    itch::DecodedMessage message_Add1{};
+
+    message_Add1.msg_type = 'A';
+    message_Add1.field_int[0] = 999; // order reference.
+    message_Add1.field_int[2] = 50;  // shares.
+
+    new_book.apply(message_Add1);
+
+    assert(got_update == true);
+    assert(captured.best_shares == message_Add1.field_int[2]);
+
+    got_update = false;
+    uint32_t orig_invalid_reduction = new_book.report_stats().invalid_reduction;
+
+    new_book.apply(message_Cancel);
+
+    assert(got_update == false);
+    assert(new_book.report_stats().invalid_reduction == (orig_invalid_reduction + 1));
+
+    // ----------------------------------------------------------------
+    // Scenario 3: Duplicate insert.
+    itch::DecodedMessage message_Add2{};
+
+    message_Add2.msg_type = 'A';
+    message_Add2.field_int[0] = 999; // order reference.
+    message_Add2.field_int[2] = 25;  // shares.
+
+    got_update = false;
+    uint32_t orig_order_table_insert_failed = new_book.report_stats().order_table_insert_failed;
+
+    new_book.apply(message_Add2);
+
+    assert(got_update == false);
+    assert(new_book.report_stats().order_table_insert_failed == (orig_order_table_insert_failed + 1));
+
+}
+
 int main(int argc, char** argv) {
 
     test_add_order_creates_level();
     test_add_then_cancel_partial();
     test_add_then_delete();
     test_add_then_replace();
+    test_error_paths_dont_fire_callback();
 
     return 0;
 }
