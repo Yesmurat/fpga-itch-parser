@@ -145,6 +145,7 @@ namespace book {
 
                 }
 
+                return 0; // unreachable given insert()'s 90% cap
             }
 
     };
