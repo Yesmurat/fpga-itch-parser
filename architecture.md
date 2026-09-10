@@ -104,7 +104,7 @@ Extracted from `moldudp64_deframer.v`'s own inline gearbox once `itch_decoder.v`
 
 Table-driven field extractor for the 9 in-scope NASDAQ TotalView-ITCH 5.0 message types: System Event (`S`), Stock Directory (`R`), Add Order (`A`), Add Order w/ MPID (`F`), Order Executed (`E`), Order Executed With Price (`C`), Order Cancel (`X`), Order Delete (`D`), Order Replace (`U`). All other ITCH 5.0 message types are out of scope, reported via `m_dec_error_unknown_type`.
 
-Field layouts were verified directly against NASDAQ's published TotalView-ITCH 5.0 Interface Specification (v5.0, 03/06/2015) — not reconstructed from memory alone, since one field ordering (Stock Directory's run of single-byte flags) was genuinely uncertain beforehand. The tables are transcribed identically into `cpp/itch_model.hpp`, the independent C++ reference decoder `sim/test_itch.py` cross-checks the RTL against for every test vector.
+Field layouts were verified directly against NASDAQ's published TotalView-ITCH 5.0 Interface Specification (v5.0, 03/06/2015) — not reconstructed from memory alone, since one field ordering (Stock Directory's run of single-byte flags) was genuinely uncertain beforehand. The tables are transcribed identically into `cpp/itch_decoder.hpp`, the independent C++ reference decoder `sim/test_itch.py` cross-checks the RTL against for every test vector.
 
 **Current state:** fully implemented and tested (`sim/test_itch.py`, 14 passing).
 
