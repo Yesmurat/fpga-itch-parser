@@ -240,6 +240,42 @@ void test_error_paths_dont_fire_callback() {
 
 }
 
+void test_locate_capacity_exceeded() {
+
+    book::OrderBook new_book{};
+    book::BookUpdate captured{}; // new BookUpdate struct
+
+    bool got_update = false;
+    
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    }; // a lambda expression
+
+    new_book.set_callback(callback);
+
+    itch::DecodedMessage message_Stock_Dir{};
+    message_Stock_Dir.msg_type = 'R';
+
+    for (uint16_t i = 100; i <= 107; i++) {
+        message_Stock_Dir.stock_locate = i;
+        new_book.apply(message_Stock_Dir);
+        assert(new_book.report_stats().locate_capacity_exceeded == 0);
+    }
+
+    uint32_t orig_locate_capacity_exceeded = new_book.report_stats().locate_capacity_exceeded;
+
+    itch::DecodedMessage message_Add{};
+    message_Add.msg_type = 'A';
+
+    message_Add.stock_locate = 108;
+    new_book.apply(message_Add);
+
+    assert(got_update == false);
+    assert(new_book.report_stats().locate_capacity_exceeded == (orig_locate_capacity_exceeded + 1));
+
+}
+
 int main(int argc, char** argv) {
 
     test_add_order_creates_level();
@@ -247,6 +283,7 @@ int main(int argc, char** argv) {
     test_add_then_delete();
     test_add_then_replace();
     test_error_paths_dont_fire_callback();
+    test_locate_capacity_exceeded();
 
     return 0;
 }
