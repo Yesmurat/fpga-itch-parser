@@ -16,8 +16,8 @@ namespace book {
     };
 
     struct BookUpdate {
-        uint8_t symbol_index;
-        bool is_buy;
+        uint8_t  symbol_index;
+        bool     is_buy;
         uint32_t best_price;    // 0 if that side is now empty
         uint32_t best_shares;
         uint64_t seq_num;       // passed through from the triggering message
