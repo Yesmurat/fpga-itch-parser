@@ -10,7 +10,7 @@ namespace {
 
         std::string buy_or_ask = book_update.is_buy ? "Buy" : "Ask";
 
-        std::cout << "Symbol index of a newly applied message: " << book_update.symbol_index << "\n";
+        std::cout << "Symbol index of a newly applied message: " << (int) book_update.symbol_index << "\n";
         std::cout << "Is it a Buy or Ask:                      " << buy_or_ask               << "\n";
         std::cout << "The best price in the book:              " << book_update.best_price   << "\n";
         std::cout << "The biggest shares in the book:          " << book_update.best_shares  << "\n";
