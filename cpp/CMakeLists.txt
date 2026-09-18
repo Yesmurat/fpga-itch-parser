@@ -44,3 +44,11 @@ add_test(NAME price_book COMMAND test_price_book)
 add_executable(test_order_book book/test_order_book.cpp)
 target_include_directories(test_order_book PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 add_test(NAME order_book COMMAND test_order_book)
+
+# Add order_book_cli as a target
+add_executable(order_book_cli book/order_book_cli.cpp)
+target_include_directories(order_book_cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Add order_book_latency as a target
+add_executable(order_book_latency book/order_book_latency.cpp)
+target_include_directories(order_book_latency PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
