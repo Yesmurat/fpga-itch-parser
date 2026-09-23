@@ -124,7 +124,7 @@ void test_add_then_delete() {
 
 }
 
-void test_add_then_replace() {
+void test_add_buy_order_then_replace() {
 
     book::OrderBook new_book;
     book::BookUpdate captured{};
@@ -169,6 +169,69 @@ void test_add_then_replace() {
     assert(captured.is_buy == captured_after_Add.is_buy);
     assert(captured.best_shares == message_Replace.field_int[2]);
     assert(captured.best_price == message_Replace.field_int[3]);
+
+}
+
+void test_add_sell_order_then_replace() {
+
+    book::OrderBook new_book;
+    book::BookUpdate captured{};
+
+    bool got_update = false;
+
+    auto callback = [&](const book::BookUpdate& u) {
+        captured   = u;
+        got_update = true;
+    };
+
+    new_book.set_callback(callback);
+
+    itch::DecodedMessage message_Add{};
+
+    message_Add.msg_type     = 'A'; // message_Add type.
+    message_Add.field_int[0] = 1;   // original order reference.
+    message_Add.field_str[1] = 'S'; // sell order.
+    message_Add.field_int[2] = 300; // 300 shares
+    message_Add.field_int[4] = 45;  // for $45.
+
+    new_book.apply(message_Add);
+    book::BookUpdate captured_after_Add = captured;
+
+    got_update = false;
+
+    itch::DecodedMessage message_Replace{};
+
+    message_Replace.msg_type = 'U';
+    message_Replace.field_int[0] = message_Add.field_int[0]; // order reference to replace.
+    message_Replace.field_int[1] = 3;                        // new order reference.
+    message_Replace.field_int[2] = 100;                      // 100 shares
+    message_Replace.field_int[3] = 20;                       // for $20.
+
+    new_book.apply(message_Replace);
+    book::BookUpdate captured_after_Replace = captured;
+
+    assert(got_update == true);
+    assert(captured.is_buy == false);
+    assert(captured.symbol_index == captured_after_Add.symbol_index);
+    assert(captured.is_buy == captured_after_Add.is_buy);
+    assert(captured.best_price == message_Replace.field_int[3]);
+    assert(captured.best_shares == message_Replace.field_int[2]);
+
+    got_update = false;
+
+    itch::DecodedMessage message_Add1;
+
+    message_Add1.msg_type     = 'A'; // message_Add type.
+    message_Add1.field_int[0] = 5;   // order reference.
+    message_Add1.field_str[1] = 'B'; // buy order.
+    message_Add1.field_int[2] = 200; // 300 shares
+    message_Add1.field_int[4] = 15;  // for $15.
+
+    new_book.apply(message_Add1);
+    assert(got_update == true);
+    assert(captured.is_buy == true);
+    assert(captured.best_shares == message_Add1.field_int[2]);
+    assert(captured.best_price == message_Add1.field_int[4]);
 
 }
 
@@ -335,15 +398,79 @@ void test_multi_symbol_sanity_check() {
 
 }
 
+void test_price_level_capacity_exceeded() {
+    
+    book::OrderBook new_book;
+    book::BookUpdate captured{};
+
+    bool got_update = false;
+
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    }; // a lambda expression
+
+    new_book.set_callback(callback);
+
+    size_t i = 0;
+    for (; i < book::PriceBook::CAPACITY; i++) {
+
+        itch::DecodedMessage message_Add{};
+        message_Add.msg_type     = 'A';
+        message_Add.field_int[0] = i;     // order reference.
+        message_Add.stock_locate = 10;    // same stock locate across all messages.
+        message_Add.field_str[1] = 'B';   // "Buy" order.
+        message_Add.field_int[2] = 200;   // same number of shares across all messages.
+        message_Add.field_int[4] = i*2;   // distinct price for each message.
+        new_book.apply(message_Add);
+
+    }
+
+    assert(new_book.report_stats().price_level_capacity_exceeded == 0);
+
+    got_update = false;
+    uint32_t orig_price_level_capacity_exceeded  = new_book.report_stats().price_level_capacity_exceeded;
+    uint32_t orig_order_table_insert_failed = new_book.report_stats().order_table_insert_failed;
+
+    itch::DecodedMessage message_Add1{};
+    message_Add1.msg_type     = 'A';
+    message_Add1.field_int[0] = i + 20;                             // order reference.
+    message_Add1.stock_locate = 10;                                 // stock locate.
+    message_Add1.field_str[1] = 'B';                                // "Buy" order.
+    message_Add1.field_int[2] = 200;                                // shares.
+    message_Add1.field_int[4] = book::PriceBook::CAPACITY * 2 + 10; // price.
+    new_book.apply(message_Add1);
+
+    assert(got_update == false);
+    assert(new_book.report_stats().price_level_capacity_exceeded == (orig_price_level_capacity_exceeded + 1));
+    assert(new_book.report_stats().order_table_insert_failed == orig_order_table_insert_failed);
+
+    uint32_t orig_unknown_order_ref       = new_book.report_stats().unknown_order_ref;
+    uint32_t orig_invalid_price_decrement = new_book.report_stats().invalid_price_decrement;
+
+    itch::DecodedMessage message_Cancel{};
+    message_Cancel.msg_type = 'X';
+    message_Cancel.stock_locate = 11; // stock locate.
+    message_Cancel.field_int[0] = message_Add1.field_int[0];  // reference of an order whose shares to cancel.
+    message_Cancel.field_int[1] = message_Add1.field_int[2]; // the amount of shares to cancel.
+    new_book.apply(message_Cancel);
+
+    assert( new_book.report_stats().unknown_order_ref == (orig_unknown_order_ref + 1) );
+    assert(new_book.report_stats().invalid_price_decrement == orig_invalid_price_decrement);
+
+}
+
 int main(int argc, char** argv) {
 
-    test_add_order_creates_level();
-    test_add_then_cancel_partial();
-    test_add_then_delete();
-    test_add_then_replace();
-    test_error_paths_dont_fire_callback();
-    test_locate_capacity_exceeded();
-    test_multi_symbol_sanity_check();
+    test_add_order_creates_level        ();
+    test_add_then_cancel_partial        ();
+    test_add_then_delete                ();
+    test_add_buy_order_then_replace     ();
+    test_add_sell_order_then_replace    ();
+    test_error_paths_dont_fire_callback ();
+    test_locate_capacity_exceeded       ();
+    test_multi_symbol_sanity_check      ();
+    test_price_level_capacity_exceeded  ();
 
     return 0;
 }
