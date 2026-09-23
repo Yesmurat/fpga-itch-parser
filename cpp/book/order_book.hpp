@@ -29,6 +29,7 @@ namespace book {
             uint32_t unknown_order_ref;
             uint32_t invalid_reduction;
             uint32_t invalid_price_decrement;
+            uint32_t price_level_capacity_exceeded;
     };
 
     class OrderBook {
@@ -102,8 +103,14 @@ namespace book {
                             break;
                         }
 
-                        PriceBook& side_book = is_buy ? books_[idx].bids : books_[idx].asks;
-                        side_book.increment(price, shares);
+                        PriceBook& side_book   = is_buy ? books_[idx].bids : books_[idx].asks;
+                        auto result_increment = side_book.increment(price, shares);
+
+                        if (result_increment != PriceBook::UpdateResult::Ok) {
+                            order_table_.erase(order_ref);
+                            price_level_capacity_exceeded_++;
+                            break;
+                        }
 
                         BookUpdate update {
                             order.symbol_index,
@@ -149,7 +156,13 @@ namespace book {
                         }
 
                         PriceBook& side_book = is_buy ? books_[idx].bids : books_[idx].asks;
-                        side_book.increment(price, shares);
+                        auto result_increment = side_book.increment(price, shares);
+
+                        if (result_increment != PriceBook::UpdateResult::Ok) {
+                            order_table_.erase(order_ref);
+                            price_level_capacity_exceeded_++;
+                            break;
+                        }
 
                         BookUpdate update {
                             order.symbol_index,
@@ -524,15 +537,14 @@ namespace book {
                             break;
                         }
 
-                        if (orig_is_buy) {
-                            books_[orig_symbol_index].bids.increment(new_price, new_shares);
-                        }
-
-                        else {
-                            books_[orig_symbol_index].asks.increment(new_price, new_shares);
-                        }
-
                         PriceBook& side_book = orig_is_buy ? books_[orig_symbol_index].bids : books_[orig_symbol_index].asks;
+
+                        auto result1 = side_book.increment(new_price, new_shares);
+
+                        if (result1 != PriceBook::UpdateResult::Ok) {
+                            order_table_.erase(new_order_ref);
+                            price_level_capacity_exceeded_++;
+                        }
 
                         BookUpdate update {
                             orig_symbol_index,
@@ -560,7 +572,8 @@ namespace book {
                     order_table_insert_failed_,
                     unknown_order_ref_,
                     invalid_reduction_,
-                    invalid_price_decrement_
+                    invalid_price_decrement_,
+                    price_level_capacity_exceeded_
                 };
 
                 return stats;
@@ -582,11 +595,12 @@ namespace book {
 
             std::function<void(const BookUpdate)> callback_;
 
-            uint32_t locate_capacity_exceeded_  = 0;
-            uint32_t order_table_insert_failed_ = 0;
-            uint32_t unknown_order_ref_         = 0;
-            uint32_t invalid_reduction_         = 0;
-            uint32_t invalid_price_decrement_   = 0;
+            uint32_t locate_capacity_exceeded_      = 0;
+            uint32_t order_table_insert_failed_     = 0;
+            uint32_t unknown_order_ref_             = 0;
+            uint32_t invalid_reduction_             = 0;
+            uint32_t invalid_price_decrement_       = 0;
+            uint32_t price_level_capacity_exceeded_ = 0;
 
             int scan_locates(uint16_t stock_locate) {
 
