@@ -2,8 +2,18 @@
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <algorithm>
 #include "order_book.hpp"
 #include "itch_decoder.hpp"
+
+std::chrono::nanoseconds percentile_value (const std::vector<std::chrono::nanoseconds>& nanosecond_durations, double percentile) { // the helper assumes the vector is sorted, non-empty, and that percentile is between 0 and 100.
+
+    size_t n                 = nanosecond_durations.size();
+    size_t percentile_index  = (percentile / (double)100) * (n - 1);
+
+    return nanosecond_durations[percentile_index];
+
+}
 
 int main(int argc, char* argv[]) {
 
@@ -53,6 +63,24 @@ int main(int argc, char* argv[]) {
 
     for (const auto& duration : nanosecond_durations) {
         std::cout << duration.count() << "ns\n";
+    }
+
+    // sort nanosecond_durations
+    std::sort(nanosecond_durations.begin(), nanosecond_durations.end());
+    // std::sort() changes the vector, doesn't return newly created one.
+
+    // pick values at p/100 * (n - 1) and print p50, p90, p99 (and p99.9 once n is large enough)
+    // plus min, max, and sample count.
+    // p is the percentile you want: 50 for p50(the median), 90 for p90, 99.9 for p99.9
+    // n is the number of samples in the sorted vector, which is basically nanosecond_durations.size()
+
+    if (nanosecond_durations.size() != 0) {
+        std::cout << "p50: " << percentile_value(nanosecond_durations, 50).count() << "ns" << "\n";
+        std::cout << "p90: " << percentile_value(nanosecond_durations, 90).count() << "ns" << "\n";
+    }
+
+    else {
+        std::cout << "no samples are present.\n";
     }
     
     return 0;
