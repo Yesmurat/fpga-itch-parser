@@ -1,4 +1,5 @@
 /*
+
 CLI around itch_decoder.hpp: decodes a [2B len][msg] block stream
 (stdin, or a file path in argv[1]) and writes one line per message to
 stdout, pipe-delimited with a fixed column count. Invoked as a subprocess
