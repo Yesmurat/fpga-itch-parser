@@ -1,18 +1,21 @@
-/* 
+/*
 
-Reference decoder for 9 in-scope NASDAQ TotalView-ITCH 5.0 message types.
-
-Field layouts below are transcribed directly from NASDAQ's published
-TotalView-ITCH 5.0 Interface Specification (v5.0, 03/06/2015), section 4.
-This is the golden model itch_decoder.v is checked against. The two
-implementations deliberately mirror each other's table shape (common
-11-byte header, then a per-type list of (width, is_ascii) fields) so a
+Reference decoder for the 9 in-scope NASDAQ TotalView-ITCH 5.0 message types.
+Field layouts are transcribed from NASDAQ's TotalView-ITCH 5.0 Interface
+Specification (v5.0, 03/06/2015), section 4. This is the golden model
+itch_decoder.v is checked against; both mirror the same table shape, so a
 mistake in one is easy to spot against the other.
 
-Wire conventions (spec section 3, "Data Types"): all integer fields are
-big-endian unsigned; all alpha (ASCII) fields are left-justified,
-space-padded on the right and carried byte-for-byte, no reversal; Price
-fields are big-endian unsigned integers with 4 implied decimal places.
+Wire conventions (spec section 3, "Data Types"): integer fields are
+big-endian unsigned; alpha (ASCII) fields are left-justified, space-padded,
+byte-for-byte; Price fields are big-endian unsigned with 4 implied decimals.
+
+Table-driven: decode_one() has no per-type logic, just a walk over the
+TypeSpec's field list reading each field by its width and is_ascii flag.
+Adding a tenth type means one TypeSpec and one switch case, no new decoding
+code. Note the consequence for DecodedMessage's parallel arrays: for slot k,
+only one of field_int[k] / field_str[k] holds real data, and fields[k].is_ascii
+says which; reading the wrong one silently yields a default.
 
 */
 
