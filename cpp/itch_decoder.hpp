@@ -85,7 +85,7 @@ namespace itch {
                     {1, true},  // LULD Reference Price Tier
                     {1, true},  // ETP Flag
                     {4, false}, // ETP Leverage Factor
-                    {1, true}  // Inverse Indicator
+                    {1, true}   // Inverse Indicator
                 }
             }
         };
@@ -112,7 +112,7 @@ namespace itch {
                     {4, false}, // Shares
                     {8, true},  // Stock
                     {4, false}, // Price
-                    {4, true}  // Attribution (MPID)
+                    {4, true}   // Attribution (MPID)
                 }
             }
         };
@@ -123,7 +123,7 @@ namespace itch {
                 {
                     {8, false}, // Order Reference Number
                     {4, false}, // Executed Shares
-                    {8, false} // Match Number
+                    {8, false}  // Match Number
                 }
             }
         };
@@ -136,7 +136,7 @@ namespace itch {
                     {4, false}, // Executed Shares
                     {8, false}, // Match Number
                     {1, true},  // Printable
-                    {4, false} // Execution Price
+                    {4, false}  // Execution Price
                 }
             }
         };
@@ -146,7 +146,7 @@ namespace itch {
             {
                 {
                     {8, false}, // Order Reference Number
-                    {4, false} // Cancelled Shares
+                    {4, false}  // Cancelled Shares
                 }
             }
         };
@@ -167,7 +167,7 @@ namespace itch {
                     {8, false}, // Original Order Reference Number
                     {8, false}, // New Order Reference Number
                     {4, false}, // Shares
-                    {4, false} // Price
+                    {4, false}  // Price
                 }
             }
         };
@@ -189,20 +189,20 @@ namespace itch {
 
     struct DecodedMessage {
 
-        uint64_t seq_num         = 0; // block index (0-based) within the input stream
-        char     msg_type        = 0; // message type (UNKNOWN, S, R, A, etc.)
+        uint64_t seq_num         = 0;                       // 0-based block index within the input stream.
+        char     msg_type        = 0;                       // message type (UNKNOWN, S, R, A, etc.).
 
-        uint16_t stock_locate    = 0;
-        uint16_t tracking_number = 0; // NASDAQ's internal tracking ID
-        uint64_t timestamp       = 0; // 48-bit value, nanoseconds since midnight
-        int      field_count     = 0; // how many of 14 slots hold real data for this message's type
+        uint16_t stock_locate    = 0;                       // which stock this message is about.
+        uint16_t tracking_number = 0;                       // NASDAQ's internal tracking ID
+        uint64_t timestamp       = 0;                       // 48-bit value, nanoseconds since midnight.
+        int      field_count     = 0;                       // how many of 14 slots hold real data for this message's type.
 
-        std::array<uint64_t, MAX_FIELDS> field_int{};    // valid where the field is not ASCII
-        std::array<std::string, MAX_FIELDS> field_str{}; // valid where the field is ASCII
+        std::array<uint64_t, MAX_FIELDS> field_int{};       // valid where the field is integer.
+        std::array<std::string, MAX_FIELDS> field_str{};    // valid where the field is ASCII.
 
-        bool error_unknown_type    = false; // set when the type byte didn't match any of the 9 known types
-        bool error_length_mismatch = false; // set when the type was recognized but the byte count handed to decode_one doesn't match what that type requires
-        bool error_truncated       = false; // set when there is no byte available to read a type from
+        bool error_unknown_type    = false;                 // set when the type byte didn't match any of the 9 known types.
+        bool error_length_mismatch = false;                 // set when the type was recognized but the byte count handed to decode_one doesn't match what that type requires.
+        bool error_truncated       = false;                 // set when there is no byte available to read a type from.
 
     };
 
@@ -217,7 +217,6 @@ namespace itch {
 
         */
 
-        // Empty DecodedMessage with default values.
         DecodedMessage m;
         m.seq_num = seq_num;
 
@@ -284,11 +283,7 @@ namespace itch {
 
     }
 
-    /*
-    Reads a stream of [2-byte big-endian length][message bytes] blocks until
-    EOF. It's a format shared by a MoldUDP64 message block and a raw NASDAQ
-    historical ITCH sample file.
-    */
+    // Read a stream of [2-byte big-endian length][message bytes] blocks (refer to line 192) until EOF.
     inline std::vector<DecodedMessage> decode_all(std::istream& in) {
 
         std::vector<DecodedMessage> out;
@@ -316,7 +311,7 @@ namespace itch {
             std::vector<uint8_t> body(len); // vectory "body" with "len" elements.
 
             if (len > 0) {
-                // in.read(dest, n) -> read n bytes from in (the file or stdin) and write into dest (buffer).
+                // read n bytes from in (file or stdin) and write into dest (buffer).
                 in.read( reinterpret_cast<char*>(body.data()) , len );
             }
 
@@ -330,9 +325,9 @@ namespace itch {
 
             }
 
-            // body.data() -> where the raw bytes live
-            // body.size() -> how many there are
-            // seq         -> which message number is this
+            // body.data() = where the raw bytes live
+            // body.size() = how many there are
+            // seq         = which message number is this
             out.push_back( decode_one( body.data(), body.size(), seq ) );
             ++seq;
         }
