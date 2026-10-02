@@ -460,6 +460,92 @@ void test_price_level_capacity_exceeded() {
 
 }
 
+void test_replace_onto_full_book() {
+
+    book::OrderBook new_book;
+    book::BookUpdate captured{};
+
+    bool got_update = false;
+
+    auto callback = [&](const book::BookUpdate& u) {
+        captured = u;
+        got_update = true;
+    }; // a lambda expression
+
+    new_book.set_callback(callback);
+
+    size_t i = 0;
+    for (; i < book::PriceBook::CAPACITY - 1; i++) {
+
+        itch::DecodedMessage message_add{};
+
+        message_add.msg_type     = 'A';
+        message_add.stock_locate = 100;
+        message_add.field_str[1] = 'B';    // Buy or Ask.
+        message_add.field_int[0] = i + 1;  // orde ref.
+        message_add.field_int[2] = 200;    // shares.
+        message_add.field_int[4] = i + 1;  // price.
+
+        new_book.apply(message_add);
+
+    }
+
+    itch::DecodedMessage message_a{};
+    message_a.msg_type     = 'A';
+    message_a.stock_locate = 100;
+    message_a.field_str[1] = 'B';
+    message_a.field_int[0] = 1000; // order ref.
+    message_a.field_int[2] = 200;
+    message_a.field_int[4] = i+1;
+    new_book.apply(message_a);
+
+    itch::DecodedMessage message_b{};
+    message_b.msg_type     = 'A';
+    message_b.stock_locate = 100;
+    message_b.field_str[1] = 'B';
+    message_b.field_int[0] = 1001; // order ref.
+    message_b.field_int[2] = 200;
+    message_b.field_int[4] = i+1;
+    new_book.apply(message_b);
+
+    // replace message_a
+    itch::DecodedMessage message_u{};
+    message_u.msg_type = 'U';
+    message_u.field_int[0] = message_a.field_int[0]; // orig order ref.
+    message_u.field_int[1] = 1002;                   // new order ref.
+    message_u.field_int[2] = 250;                    // shares.
+    message_u.field_int[3] = i+10;                   // price.
+
+    got_update = false;
+    uint32_t orig_price_level_capacity_exceeded = new_book.report_stats().price_level_capacity_exceeded;
+    uint32_t orig_order_table_insert_failed     = new_book.report_stats().order_table_insert_failed;
+
+    new_book.apply(message_u);
+
+    assert(got_update == true);
+    assert(new_book.report_stats().price_level_capacity_exceeded == orig_price_level_capacity_exceeded + 1);
+    assert(new_book.report_stats().order_table_insert_failed == orig_order_table_insert_failed);
+
+    itch::DecodedMessage message_x1{};
+    message_x1.msg_type = 'X';
+    message_x1.field_int[0] = message_u.field_int[1]; // order ref.
+    message_x1.field_int[1] = 200;
+
+    uint32_t orig_unknown_order_ref = new_book.report_stats().unknown_order_ref;
+    new_book.apply(message_x1);
+    assert(new_book.report_stats().unknown_order_ref == orig_unknown_order_ref + 1);
+
+    itch::DecodedMessage message_x2{};
+    message_x2.msg_type = 'X';
+    message_x2.field_int[0] = message_a.field_int[0];
+    message_x2.field_int[1] = 150;
+
+    orig_unknown_order_ref = new_book.report_stats().unknown_order_ref;
+    new_book.apply(message_x2);
+    assert(new_book.report_stats().unknown_order_ref == orig_unknown_order_ref + 1);
+
+}
+
 int main(int argc, char** argv) {
 
     test_add_order_creates_level        ();
@@ -471,6 +557,7 @@ int main(int argc, char** argv) {
     test_locate_capacity_exceeded       ();
     test_multi_symbol_sanity_check      ();
     test_price_level_capacity_exceeded  ();
+    test_replace_onto_full_book         ();
 
     return 0;
 }
