@@ -44,24 +44,24 @@ namespace book {
 
                 switch (message.msg_type) {
 
-                    case 'S': { // System Event.
-                        /*
-                        not about any specific order, but the whole session — markers like "start of messages," 
-                        "start of market hours," "end of market hours," "end of messages." No book effect; 
-                        it's just a timeline marker for session state, which is why the plan lists it as
-                        a no-op in apply().
-                        */
+                    case 'S': { // System Event Message.
+
+                        // The system event message type is used to signal a market or data feed handler event.
+                        // It's just a timeline marker for session state, which is why the plan lists it as a no-op in apply().
                         break;
+
                     }
 
-                    case 'R': { // Stock Directory.
-
+                    // Stock Related Messages
+                    case 'R': { // Stock Directory Message.
 
                         /*
-                        establishes what a stock_locate number actually means — it links that 
-                        numeric id to the real ticker (e.g., AAPL) plus some static info about the stock. Sent once per 
-                        symbol near the start of the session, before any real orders for that symbol appear. This is exactly 
-                        what you just wired up — it's the message that first teaches OrderBook "this locate number exists."
+                        At the start of each trading day, Nasdaw disseminates stock directory messages for all active symbols
+                        in the Nasdaq execution system. It establishes what a stock_locate number actually means: it links that 
+                        numeric id to the real ticker (e.g., AAPL) plus some static info about the stock.
+                        
+                        Sent once per symbol near the start of the session, before any real orders for that symbol appear.
+                        This is exactly what you just wired up: it's the message that first teaches OrderBook "this locate number exists."
                         */
 
                         int idx = scan_locates(message.stock_locate);
@@ -74,13 +74,16 @@ namespace book {
 
                     }
 
-                    case 'A': { // Add Order (No MPID).
+                    /* Add Order Messages
+                        An Add Order Message indicates that a new order has been accepted by the Nasdaq system and was added to the displayable book.
+                        The message includes a day-unique Order Reference Number used by Nasdaq to track the order. Nasdaq will support two variations
+                        of the Add Order message format.
+                    */
 
-                        /*
-                        a brand-new limit order enters the book, anonymously — no 
-                        attribution to the firm that placed it. Carries the order reference number, buy/sell side, share
-                        count, stock locate, and price.
-                        */
+                    case 'A': { // Add Order Message (No MPID).
+
+                        // This message will be generated for unattributed orders accepted by the Nasdaq system.
+                        // This message carries the order reference number, buy/sell side, share count, stock locate, and price.
 
                         int idx = scan_locates(message.stock_locate);
 
@@ -125,13 +128,11 @@ namespace book {
                         break;
                     }
 
-                    case 'F': { // Add Order (MPID Attached)
+                    case 'F': { // Add Order Message (MPID Attached)
 
-                        /*
-                        functionally identical to A for book-keeping purposes, just 
-                        with an extra field identifying the market participant (firm) that placed the order. That's why the 
-                        plan groups A/F together — same book effect, different metadata.
-                        */
+                        // This message will be generated for attributed orders and quotations accepted by the Nasdaq system.
+                        // It's functionally identical to A for book-keeping purposes, just with an extra field identifying
+                        // the market participant (firm) that placed the order.
 
                         int idx = scan_locates(message.stock_locate);
 
@@ -178,13 +179,22 @@ namespace book {
                         
                     }
 
-                    case 'E': { // Order Executed.
+                    /* Modify Order Messages
+                        Modify Order messages always include the Order Reference Number of the Add Order to which the update
+                        applies. To determine the current display shares of an order, TICH subscribers must deduct the number of shares
+                        stated in the Modiy message from the original number of shares stated in the Add Order message with the same
+                        reference number. Nasdaq may send multiple Modify Order messages for the same order reference number and
+                        the effects are cumilative. When the number of display shares for an order reaches zero, the order is dead and
+                        should be removed from the book.
+                    */
 
-                        /*
-                        some or all of an existing order's shares just traded, at the price it was 
-                        originally displayed at. Carries the order reference and how many shares executed — nothing 
-                        about price, since it doesn't change.
-                        */
+                    case 'E': { // Order Executed Message.
+
+                        // This message is sent whenever an order on the book is executed in whole or in part. It is possible to receive several
+                        // Order Executed Messages for the same order reference number if that order is executed in several parts. The
+                        // multiple Order Executed Messages on the same order are cumilative.
+
+                        // This message carries the order reference and how many shares executed; nothing about price, since it doesn't change.
 
                         uint64_t order_ref       = message.field_int[0];
                         uint32_t executed_shares = message.field_int[1];
@@ -258,13 +268,18 @@ namespace book {
 
                     }
 
-                    case 'C': { // Order Executed With Price.
+                    case 'C': { // Order Executed With Price Message.
 
                         /*
-                        the same idea as E, but the execution happened at a different 
-                        price than what was displayed (this shows up for certain hidden/reserve order scenarios). For 
-                        book-keeping, this behaves identically to E — the displayed price/size on the book still just 
-                        reduces by the executed shares; the different execution price is a trade-reporting detail, not 
+                        This message is sent whenever an order on the book is executed in whole or in part at a price different from the 
+                        initial display price. Since the execution price is different than the display price of the original Add Order, Nasdaq 
+                        includes a price field within this execution message.
+
+                        It is possible to receive multiple Order Executed and Order Executed With Price messages for the same order if that 
+                        order is executed in several parts. The multiple Order Executed messages on the same order are cumulative.
+
+                        For book-keeping, this behaves identically to E (the displayed price/size on the book still just 
+                        reduces by the executed shares); the different execution price is a trade-reporting detail, not 
                         something that reprices the book.
                         */
 
@@ -341,13 +356,9 @@ namespace book {
                         break;
                     }
 
-                    case 'X': { // Order Cancel.
+                    case 'X': { // Order Cancel Message.
 
-                        /*
-                        a partial reduction — some of an order's remaining shares are cancelled, but 
-                        the order itself might still be live afterward with fewer shares. Mechanically, same reduce-in-place 
-                        logic as E.
-                        */
+                        // This message is sent whenever an order on the book is modified as a result of a partial cancellation.
 
                         uint64_t order_ref        = message.field_int[0];
                         uint32_t cancelled_shares = message.field_int[1];
@@ -415,12 +426,13 @@ namespace book {
 
                     }
 
-                    case 'D': { // Order Delete.
+                    case 'D': { // Order Delete Message.
 
                         /*
-                        the entire remaining order is pulled from the book — no shares field at all, 
-                        since deleting is total. This is the one that always removes the order from order_table_, not just
-                        reduces it.
+                        This message is sent whenever an order book is being cancelled. All remaining shares are no longer
+                        accessible so the order must be removed from the book.
+
+                        This message removes the order from order_table_, not just reduces it.
                         */
 
                         uint64_t order_ref = message.field_int[0];
@@ -476,9 +488,15 @@ namespace book {
 
                     }
 
-                    case 'U': { // Order Replace.
+                    case 'U': { // Order Replace Message.
 
                         /*
+                        This message is sent whenever an order book on the book has been cancel-replaced. All remaining shares from the
+                        original order are no longer accessible, and must be removed. The new order details are provided for the
+                        replacement, along with a new order reference number which will be used henceforth. Since the side, stock
+                        symbol and attribution (if any) cannot be changed by an Order Replace event, these fields are not included in the
+                        message. Firms should retain the side, stock symbol and MPID from the original Add Order message.
+
                         represents "modify an order" — but since ITCH has no in-place-modify 
                         message, it's expressed as one combined message: the old order reference is entirely retired, and 
                         a new order reference takes its place, typically at a different size and/or price. This is why 
