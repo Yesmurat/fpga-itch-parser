@@ -192,9 +192,9 @@ namespace itch {
         uint64_t seq_num         = 0;                       // 0-based block index within the input stream.
         char     msg_type        = 0;                       // message type (UNKNOWN, S, R, A, etc.).
 
-        uint16_t stock_locate    = 0;                       // which stock this message is about.
-        uint16_t tracking_number = 0;                       // NASDAQ's internal tracking ID
-        uint64_t timestamp       = 0;                       // 48-bit value, nanoseconds since midnight.
+        uint16_t stock_locate    = 0;                       // Locate Code uniquely assigned to the security symbol for the day. 
+        uint16_t tracking_number = 0;                       // Nasdaq internal tracking number 
+        uint64_t timestamp       = 0;                       // Time at which the directory message was generated.
         int      field_count     = 0;                       // how many of 14 slots hold real data for this message's type.
 
         std::array<uint64_t, MAX_FIELDS> field_int{};       // valid where the field is integer.
@@ -256,14 +256,14 @@ namespace itch {
             // extract a particular field at fields[k] in spec.
             const FieldSpec& f = spec.fields[static_cast<size_t>(k)];
 
-            if (f.is_ascii) { // if the field is ASCII text (like Stock, Buy/Sell Indicator, or Event Code)
+            if (f.is_ascii) { // e.g. Stock, Buy/Sell Indicator, Event Code
 
-                // add it to field_str array in a message.
+                // add it to field_str array of a message.
                 m.field_str[static_cast<size_t>(k)] = std::string(reinterpret_cast<const char*>(body + off), f.width);
                     
             }
             
-            else { // if the field is a number (like Shares, Price, or an Order Reference Number)
+            else { // e.g. Shares, Price, Order Reference Number)
 
                 uint64_t v = 0;
 
