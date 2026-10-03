@@ -56,11 +56,14 @@ int main(int argc, char* argv[]) {
     } // apply each message to the order book
 
     // print statistics.
-    std::cout << "invalid_price_decrement:   " << order_book.report_stats().invalid_price_decrement   << "\n";
-    std::cout << "invalid_reduction:         " << order_book.report_stats().invalid_reduction         << "\n";
-    std::cout << "locate_capacity_exceeded:  " << order_book.report_stats().locate_capacity_exceeded  << "\n";
-    std::cout << "order_table_insert_failed: " << order_book.report_stats().order_table_insert_failed << "\n";
-    std::cout << "unknown_order_ref:         " << order_book.report_stats().unknown_order_ref         << "\n";
+    const book::Stats stats = order_book.report_stats();
+    std::cout << "invalid_price_decrement:       " << stats.invalid_price_decrement       << "\n";
+    std::cout << "invalid_reduction:             " << stats.invalid_reduction             << "\n";
+    std::cout << "locate_capacity_exceeded:      " << stats.locate_capacity_exceeded      << "\n";
+    std::cout << "order_table_insert_failed:     " << stats.order_table_insert_failed     << "\n";
+    std::cout << "unknown_order_ref:             " << stats.unknown_order_ref             << "\n";
+    std::cout << "price_level_capacity_exceeded: " << stats.price_level_capacity_exceeded << "\n";
+    std::cout << "malformed_message:             " << stats.malformed_message             << "\n";
 
     return 0;
 
