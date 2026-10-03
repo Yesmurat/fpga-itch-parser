@@ -30,6 +30,7 @@ namespace book {
             uint32_t invalid_reduction;
             uint32_t invalid_price_decrement;
             uint32_t price_level_capacity_exceeded;
+            uint32_t malformed_message;
     };
 
     class OrderBook {
@@ -41,6 +42,11 @@ namespace book {
             }
 
             void apply(const itch::DecodedMessage& message) {
+
+                if (message.error_unknown_type || message.error_length_mismatch || message.error_truncated) {
+                    malformed_message_++;
+                    return;
+                }
 
                 switch (message.msg_type) {
 
@@ -591,7 +597,8 @@ namespace book {
                     unknown_order_ref_,
                     invalid_reduction_,
                     invalid_price_decrement_,
-                    price_level_capacity_exceeded_
+                    price_level_capacity_exceeded_,
+                    malformed_message_
                 };
 
                 return stats;
@@ -619,6 +626,7 @@ namespace book {
             uint32_t invalid_reduction_             = 0;
             uint32_t invalid_price_decrement_       = 0;
             uint32_t price_level_capacity_exceeded_ = 0;
+            uint32_t malformed_message_             = 0;
 
             int scan_locates(uint16_t stock_locate) {
 
