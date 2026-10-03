@@ -5,3 +5,4 @@ sim/results*.xml
 *.vvp
 cpp/build/
 build
+*.bin
