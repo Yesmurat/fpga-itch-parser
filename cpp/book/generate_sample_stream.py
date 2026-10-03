@@ -60,6 +60,19 @@ def pack_delete(order_ref = 0):
 
     return result
 
+def pack_replace(orig_order_ref = 0, new_order_ref = 0, shares = 0, price = 0):
+
+    header = pack_header('U')
+    orig_order_ref_bytes = orig_order_ref.to_bytes(8, 'big')
+    new_order_ref_bytes  = new_order_ref.to_bytes(8, 'big')
+    shares_bytes         = shares.to_bytes(4, 'big')
+    price_bytes          = price.to_bytes(4, 'big')
+
+    result = (header + orig_order_ref_bytes + new_order_ref_bytes + shares_bytes + price_bytes)
+    assert( len(result) == 35 )
+
+    return result
+
 def frame(body):
 
     prefix = len(body).to_bytes(2, 'big')
