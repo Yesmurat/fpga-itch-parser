@@ -53,8 +53,8 @@ C++ path - cpp/
 | Price book - sorted bounded array (`cpp/book/price_book.hpp`) | done | `test_price_book` - 9 passing |
 | Order book engine - all 9 message types (`cpp/book/order_book.hpp`) | done | `test_order_book` - 10 passing |
 | Book inspection CLI (`cpp/book/order_book_cli.cpp`) | done | - |
-| Decode-to-book-update latency (`cpp/book/order_book_latency.cpp`) | built; needs a larger input stream for the percentiles to mean anything | - |
-| Test-stream generator (`cpp/book/generate_sample_stream.py`) | partial - emits a 4-message fixture; bulk generation in progress | - |
+| `apply()` latency instrumentation (`cpp/book/order_book_latency.cpp`) | done | not a pass/fail test - reports p50/p90/p99 + min/max/sample count, see below |
+| Test-stream generator (`cpp/book/generate_stream.py`) | done | validated by the seven error counters reading zero across 50,000 messages |
 
 The 9 in-scope ITCH 5.0 message types: System Event, Stock Directory, Add Order, Add Order with MPID, Order Executed, Order Executed With Price, Order Cancel, Order Delete, Order Replace - the minimum set needed to build a real order book. All other ITCH 5.0 message types are explicitly out of scope, along with: gap/duplicate *recovery* (retransmission requests - gap and duplicate *detection* is implemented in RTL), A/B feed arbitration, and hardware deployment. Known well enough to discuss, deliberately not built.
 
@@ -108,12 +108,19 @@ Simulator: Icarus Verilog via [cocotb](https://www.cocotb.org/) 2.0, packet cons
 
 ## Inspecting a stream
 
+No `.bin` streams are committed - `generate_stream.py` writes them, in either of two sizes:
+
 ```bash
-cd cpp/book && python3 generate_sample_stream.py    # writes sample_stream.bin next to the script
-cd ../.. && ./cpp/build/order_book_cli cpp/book/sample_stream.bin
+cd cpp/book
+python3 generate_stream.py sample     # sample_stream.bin - 4 messages, hand-written, for eyeballing
+python3 generate_stream.py large      # large_stream.bin  - 50,000 messages, ~1.5 MB
+
+cd ../.. && ./cpp/build/order_book_cli cpp/book/large_stream.bin | tail -8
 ```
 
-Prints a `BookUpdate` for every change to the top of a book, then the seven error counters. On a well-formed stream all seven read zero - which is the real check that the input exercised book-building work rather than error paths.
+`order_book_cli` prints a `BookUpdate` for every change to the top of a book, then the seven error counters. On a well-formed stream all seven read zero - which is the real check that the input exercised book-building work rather than error paths. `itch_model_cli` is the complementary tool: it prints one line per message with every decoded field and the three decoder error flags, so it localises a framing or field-placement bug to a specific `seq_num` where the counters only give an aggregate.
+
+The large stream is generated from a seeded RNG against a live-order pool - the generator keeps its own `order_ref -> (locate, side, shares, price)` table mirroring `OrderTable`, so that every Cancel, Delete, and Replace it emits names an order that is actually resting on the book. That is what makes the zero-counter check meaningful: a stateless random generator would emit mostly dead references, score `unknown_order_ref` on nearly every message, and measure almost no book-building work. Composition is roughly 40% Add / 25% Cancel / 20% Delete / 15% Replace after a 500-message warm-up of pure Adds, with prices drawn from a narrow band per side so bids never cross asks and levels are revisited rather than created once each.
 
 ## Latency
 
@@ -128,7 +135,22 @@ Drives 5000 realistic-mix ITCH messages (weighted toward real traffic compositio
 **C++ - decoded message in to book update out**
 
 ```bash
-./cpp/build/order_book_latency cpp/book/sample_stream.bin
+cd cpp/book && python3 generate_stream.py large
+cd ../.. && ./cpp/build/order_book_latency cpp/book/large_stream.bin
 ```
 
-Times `OrderBook::apply()` with `std::chrono::steady_clock`, sampling inside the callback so the measurement spans decode-to-book-update, and reports percentiles from the sorted samples. The committed `sample_stream.bin` is a 4-message fixture and yields only three samples, which is far too few for a percentile to mean anything - a bulk stream generator is in progress, and no latency numbers are claimed until it exists.
+**What is inside the measurement window:** `OrderBook::apply()`, and nothing else. `decode_all()` runs to completion before any timer starts, so decoding cost is excluded entirely - these are per-book-update numbers, not per-message end-to-end numbers. The clock is `std::chrono::steady_clock`, started immediately before `apply()` and read inside the `BookUpdate` callback, so the interval spans dispatch plus whichever of `OrderTable`/`PriceBook` the message touched.
+
+Across four runs of the 50,000-message stream (49,992 samples each - every non-Stock-Directory message fires a callback):
+
+| | observed |
+|---|---|
+| p50 | 280 - 370 ns |
+| p90 | 430 - 650 ns |
+| p99 | 660 - 1510 ns |
+| min | 64 - 75 ns |
+| max | 33 - 67 µs |
+
+Ranges, not single figures, because that is what the data supports: p50 spread ~30% across runs and p99 moved 663 → 1507 ns, all on byte-identical input. The `max` is two orders of magnitude above p99 and is scheduler preemption or a page fault rather than anything the book did - it is reported for honesty, not as something to optimise. This is a development machine under normal load, not a pinned core on a tuned kernel.
+
+The mixed stream is roughly 2.5x slower than an Adds-only stream, which is the more interesting result: `X`/`D`/`U` each perform an `OrderTable::find` that Adds skip, the table sits at ~15% load factor rather than near-empty so probe chains are longer, and `U` is the heaviest path in `apply()` - find, decrement, erase, insert, increment.
