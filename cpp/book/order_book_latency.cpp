@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     }
 
     book::OrderBook order_book{};
-    book::BookUpdate current_book_update;
+    // book::BookUpdate current_book_update;
 
     std::chrono::steady_clock clock; // clock variable
     std::chrono::_V2::steady_clock::time_point start_time;
@@ -61,9 +61,10 @@ int main(int argc, char* argv[]) {
 
     } // apply each message to the order book.
 
-    for (const auto& duration : nanosecond_durations) {
-        std::cout << duration.count() << "ns\n";
-    }
+    // removed for generate_stream.py testing...
+    // for (const auto& duration : nanosecond_durations) {
+    //     std::cout << duration.count() << "ns\n";
+    // }
 
     // sort nanosecond_durations
     std::sort(nanosecond_durations.begin(), nanosecond_durations.end());
@@ -75,8 +76,12 @@ int main(int argc, char* argv[]) {
     // n is the number of samples in the sorted vector, which is basically nanosecond_durations.size()
 
     if (nanosecond_durations.size() != 0) {
-        std::cout << "p50: " << percentile_value(nanosecond_durations, 50).count() << "ns" << "\n";
-        std::cout << "p90: " << percentile_value(nanosecond_durations, 90).count() << "ns" << "\n";
+        std::cout << "p50:          " << percentile_value(nanosecond_durations, 50).count()            << "ns\n";
+        std::cout << "p90:          " << percentile_value(nanosecond_durations, 90).count()            << "ns\n";
+        std::cout << "p99:          " << percentile_value(nanosecond_durations, 99).count()            << "ns\n";
+        std::cout << "min:          " << nanosecond_durations[0].count()                               << "ns\n";
+        std::cout << "max:          " << nanosecond_durations[nanosecond_durations.size() - 1].count() << "ns\n";
+        std::cout << "sample count: " << nanosecond_durations.size()                                   << "\n"  ;
     }
 
     else {
