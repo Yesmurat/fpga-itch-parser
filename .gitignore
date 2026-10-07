@@ -1,8 +1,4 @@
 __pycache__/
 *.pyc
-sim/sim_build/
-sim/results*.xml
-*.vvp
-cpp/build/
-build
+build/
 *.bin
