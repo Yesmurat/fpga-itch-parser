@@ -204,7 +204,6 @@ namespace book {
 
                         uint64_t order_ref       = message.field_int[0];
                         uint32_t executed_shares = message.field_int[1];
-                        uint64_t match_number    = message.field_int[2];
 
                         Order* order = order_table_.find(order_ref);
 
@@ -291,9 +290,7 @@ namespace book {
 
                         uint64_t order_ref       = message.field_int[0];
                         uint32_t executed_shares = message.field_int[1];
-                        uint64_t match_number    = message.field_int[2];
                         std::string printable    = message.field_str[3];
-                        uint32_t execution_price = message.field_int[4];
 
                         Order* order = order_table_.find(order_ref);
 
