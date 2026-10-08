@@ -32,22 +32,22 @@ add_executable(order_book_latency book/order_book_latency.cpp)
 target_include_directories(order_book_latency PRIVATE ${CMAKE_SOURCE_DIR})
 
 # ------------------------------------------------------------------------------------
-# Tests live in book/tests/, so they need book/ explicitly too.
+# Tests live in tests/, so they need book/ explicitly too.
 
 # Turn on CTest support for the project.
 enable_testing()
 
 # Create a test_order_table target, add path to its include files, and treat it as a test.
-add_executable(test_order_table book/tests/test_order_table.cpp)
+add_executable(test_order_table tests/test_order_table.cpp)
 target_include_directories(test_order_table PRIVATE ${CMAKE_SOURCE_DIR}/book)
 add_test(NAME order_table COMMAND test_order_table)
 
 # Create a test_price_book target, add path to its include files, and treat it as a test.
-add_executable(test_price_book book/tests/test_price_book.cpp)
+add_executable(test_price_book tests/test_price_book.cpp)
 target_include_directories(test_price_book PRIVATE ${CMAKE_SOURCE_DIR}/book)
 add_test(NAME price_book COMMAND test_price_book)
 
 # Create a test_order_book target, add paths to its include files, and treat it as a test.
-add_executable(test_order_book book/tests/test_order_book.cpp)
+add_executable(test_order_book tests/test_order_book.cpp)
 target_include_directories(test_order_book PRIVATE ${CMAKE_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/book)
 add_test(NAME order_book COMMAND test_order_book)
