@@ -16,7 +16,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ------------------------------------------------------------------------------------
-# Targets in book/ find their sibling headers directly; they need the root only for itch_decoder.hpp.
+# Targets in book/ find their sibling headers directly.
+# They need the root only for itch_decoder.hpp.
 
 # Create "itch_model_cli" target and add path to its include files.
 add_executable(itch_model_cli itch_model_cli.cpp)
