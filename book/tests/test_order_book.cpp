@@ -208,7 +208,6 @@ void test_add_sell_order_then_replace() {
     message_Replace.field_int[3] = 20;                       // for $20.
 
     new_book.apply(message_Replace);
-    book::BookUpdate captured_after_Replace = captured;
 
     assert(got_update == true);
     assert(captured.is_buy == false);
@@ -546,7 +545,7 @@ void test_replace_onto_full_book() {
 
 }
 
-int main(int argc, char** argv) {
+int main() {
 
     test_add_order_creates_level        ();
     test_add_then_cancel_partial        ();
