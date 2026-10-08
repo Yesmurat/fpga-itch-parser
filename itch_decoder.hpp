@@ -1,6 +1,6 @@
 /*
 
-Reference decoder for the 9 in-scope NASDAQ TotalView-ITCH 5.0 message types.
+Reference decoder for 9 NASDAQ TotalView-ITCH 5.0 message types.
 Field layouts are transcribed from NASDAQ's TotalView-ITCH 5.0 Interface
 Specification (v5.0, 03/06/2015), section 4.
 
