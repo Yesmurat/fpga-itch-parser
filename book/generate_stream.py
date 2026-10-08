@@ -1,42 +1,21 @@
-"""
-TODOs:
-    1. Finish weighted choice and empty-pool guard.
-    2. Write emit_cancel and emit_replace between emit_delete and warmup.
-
-Note (2): after adding emit_cancel and emit_replace, you should change the definition of 'branch' variable to
-    branch = random.choices([emit_add, emit_cancel, emit_delete, emit_replace],
-                            weights=[40, 25, 20, 15])[0]
-
-Note on dashes for code separation & readability:
-    1. '--------------------------------' is 32 dashes
-    2. '----------------------------------------------------------------' is 64 dashes
-
-Design details:
-    1. order_table is a dictionary of "order_ref -> (locate, is_buy, shares, price)".
-    2. order_ref is int, while (locate, is_buy, shares, price) is a tuple.
-    3. locate, shares, price are int's, while is_buy is bool.
-
-"""
-
 import sys
 import random
 
 SEED        = 256                                # reproducibility
-# List of supported stocks (like Apple, IBM, NVIDIA, AMD, Intel, Micron Technology, Qualcomm, Broadcom)
-LOCATES     = [1, 2, 3, 4, 5, 6, 7, 8]           # hard cap: array<SymbolBook,8>
+LOCATES     = [1, 2, 3, 4, 5, 6, 7, 8]           # array<SymbolBook,8>
 BASE_PRICE  = 250_000                            # $25.0000 (4 implied decimals)
 TICK        = 100                                # one cent
 BAND        = 10                                 # ticks per side
 WARMUP      = 500
 TOTAL       = 50_000
 
-# Message packing helpers
+# Message packers.
 # ----------------------------------------------------------------
 def pack_header(msg_type, stock_locate = 0, tracking_number = 0, timestamp = 0) -> bytes:
-    # 1 byte for msg_type (its ASCII code)
-    # 2 bytes big-endian for stock_locate
-    # 2 bytes big-endian for tracking_number
-    # 6 bytes big-endian for timestamp.
+    # 1-byte msg_type (its ASCII code).
+    # 2-byte big-endian stock_locate.
+    # 2-byte big-endian tracking_number.
+    # 6-byte big-endian timestamp.
 
     msg_type_bytes        = msg_type.encode('ascii')
     stock_locate_bytes    = stock_locate.to_bytes(2, 'big')
@@ -114,7 +93,7 @@ def frame(body : bytes) -> bytes:
     return result
 # ----------------------------------------------------------------
 
-# Byte stream building helpers
+# Byte stream builders
 # ----------------------------------------------------------------
 def pool_add(order_table : dict, order_ref : int, locate : int, is_buy : bool, shares : int, price : int) -> None:
     
@@ -186,10 +165,8 @@ def build_large_stream(total=TOTAL, warmup=WARMUP, seed=SEED):
 
     def emit_cancel():
 
-        # 1. Pick a random order_ref from "order_table"
         order_ref = pool_pick(order_table)
 
-        # 2. Register order's shares and delete the order if order's shares < 200
         order_shares = order_table[order_ref][2]
 
         if order_shares < 200:
@@ -203,12 +180,8 @@ def build_large_stream(total=TOTAL, warmup=WARMUP, seed=SEED):
             # finish
             return
 
-        # 3. Pick a random number of shares to cancel
 
-        # 100 to order_shares - 100 (in integer multiples of 100)
         random_shares = random.randint(1, order_shares // 100 - 1) * 100
-
-        # 4. Rewrite an order with reduced number of shares and updat "order_table" and "parts"
 
         # update "order_table"
         locate, is_buy, shares, price = order_table[order_ref]
@@ -219,28 +192,18 @@ def build_large_stream(total=TOTAL, warmup=WARMUP, seed=SEED):
 
     def emit_replace():
 
-        """
-        Read the tuple before removing it, and draw the new price from the origianl order's side.
-        Watch unknown_order_ref (stale ref left in the pool) and order_table_insert failed (ref reuse).
-        """
-
         nonlocal next_ref
 
-        # 1. Read a random order_ref from order_table
         old_order_ref = pool_pick(order_table)
 
-        # 2. Generate new order_ref from next_ref
         new_order_ref = next_ref
         next_ref += 1
 
-        # 3. Remove the order from order_table and save the deleted tuple to corresponding variables
         locate, is_buy, shares, price = order_table.pop(old_order_ref)
 
-        # 4. Generate new price and shares
         new_price =  price_with_side_in_mind(is_buy)
         new_shares = random.randint(1, 10) * 100
 
-        # 5. Append new order to "order_table" and "parts"
         order_table[new_order_ref] = (locate, is_buy, new_shares, new_price)
         parts.append(
             frame(
