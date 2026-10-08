@@ -37,6 +37,11 @@ target_include_directories(order_book_latency PRIVATE ${CMAKE_SOURCE_DIR})
 # Turn on CTest support for the project.
 enable_testing()
 
+# Create a test_itch_decoder target, add path to its include files, and treat it as a test.
+add_executable(test_itch_decoder tests/test_itch_decoder.cpp)
+target_include_directories(test_itch_decoder PRIVATE ${CMAKE_SOURCE_DIR})
+add_test(NAME itch_decoder COMMAND test_itch_decoder)
+
 # Create a test_order_table target, add path to its include files, and treat it as a test.
 add_executable(test_order_table tests/test_order_table.cpp)
 target_include_directories(test_order_table PRIVATE ${CMAKE_SOURCE_DIR}/book)
