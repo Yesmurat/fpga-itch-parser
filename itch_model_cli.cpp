@@ -2,9 +2,12 @@
 
 CLI around itch_decoder.hpp: decodes a [2B len][msg] block stream
 (stdin, or a file path in argv[1]) and writes one line per message to
-stdout, pipe-delimited with a fixed column count. Invoked as a subprocess
-from sim/golden/itch_model.py. This binary is the actual golden model,
-the Python wrapper just shells out to it and parses the output.
+stdout, pipe-delimited with a fixed column count.
+
+This is the decoder-level inspection tool. Unlike order_book_cli, it
+prints every message - including malformed ones, with their error flags -
+so a framing or field-placement bug can be localised to a specific
+seq_num rather than showing up only as an aggregate counter.
 
 Column layout (fixed arity - always exactly MAX_FIELDS field columns,
 blank past field_count):

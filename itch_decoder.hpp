@@ -2,9 +2,7 @@
 
 Reference decoder for the 9 in-scope NASDAQ TotalView-ITCH 5.0 message types.
 Field layouts are transcribed from NASDAQ's TotalView-ITCH 5.0 Interface
-Specification (v5.0, 03/06/2015), section 4. This is the golden model
-itch_decoder.v is checked against; both mirror the same table shape, so a
-mistake in one is easy to spot against the other.
+Specification (v5.0, 03/06/2015), section 4.
 
 Wire conventions (spec section 3, "Data Types"): integer fields are
 big-endian unsigned; alpha (ASCII) fields are left-justified, space-padded,
