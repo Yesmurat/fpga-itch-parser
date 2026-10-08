@@ -1,5 +1,4 @@
 #pragma once
-#include <cassert>
 #include "price_book.hpp"
 #include "order_table.hpp"
 #include "itch_decoder.hpp"
@@ -7,6 +6,7 @@
 #include <cstdint>
 #include <array>
 #include <functional>
+#include <cassert>
 
 namespace book {
     
@@ -37,7 +37,7 @@ namespace book {
 
         public:
 
-            void set_callback(std::function<void(const BookUpdate)> cb) {
+            void set_callback(std::function<void(const BookUpdate&)> cb) {
                 callback_ = cb;
             }
 
@@ -615,7 +615,7 @@ namespace book {
             // The position of a locate within locates_ is its symbol index:
             // locates_[3] == 1234 means locate 1234 maps to books_[3].
 
-            std::function<void(const BookUpdate)> callback_;
+            std::function<void(const BookUpdate&)> callback_;
 
             uint32_t locate_capacity_exceeded_      = 0;
             uint32_t order_table_insert_failed_     = 0;
