@@ -245,7 +245,7 @@ void test_top10_promotion() {
 
 }
 
-int main(int argc, char** argv) {
+int main() {
 
     test_increment_new_level();
     test_increment_existing_level();

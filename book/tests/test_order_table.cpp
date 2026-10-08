@@ -207,7 +207,7 @@ void test_sustained_reuse() {
 
 }
 
-int main (int argc, char** argv) {
+int main () {
 
     test_insert_and_find();
     test_find_missing();
